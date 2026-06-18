@@ -33,6 +33,7 @@ def publish_campaign(
     channel: PublishChannel = "cdn",
     outputs_dir: Path = Path("outputs"),
     publish: bool = False,
+    repo_dir: Path | None = None,
 ) -> PublishResult:
     output_dir = outputs_dir / campaign_name
     manifest_path = output_dir / "manifest.json"
@@ -45,7 +46,13 @@ def publish_campaign(
     if channel == "release":
         return publish_release(output_dir, manifest_path, manifest, publish=publish)
     if channel == "repo":
-        return publish_repo(output_dir, manifest_path, manifest, publish=publish)
+        return publish_repo(
+            output_dir,
+            manifest_path,
+            manifest,
+            publish=publish,
+            repo_dir=repo_dir,
+        )
     raise ValueError(f"unsupported publish channel: {channel}")
 
 
@@ -159,11 +166,12 @@ def publish_repo(
     manifest_path: Path,
     manifest: dict[str, Any],
     publish: bool,
+    repo_dir: Path | None = None,
 ) -> PublishResult:
     campaign_name = manifest["campaign"]
     brand = repo_brand_info(manifest)
     portfolio = repo_portfolio_info(manifest, brand)
-    artifact_root = Path(os.getenv("HARNESS_REPO_PUBLISH_DIR", "published"))
+    artifact_root = repo_dir or Path(os.getenv("HARNESS_REPO_PUBLISH_DIR", "published"))
     portfolio_snapshot_dir = artifact_root / "portfolios" / portfolio["id"] / portfolio["version"]
     snapshot_dir = artifact_root / "products" / portfolio["id"] / brand["id"] / brand["version"]
     artifact_dir = snapshot_dir / "artifacts" / campaign_name
@@ -177,6 +185,7 @@ def publish_repo(
     published_manifest["publish_channel"] = "repo"
     published_manifest["storage"] = {
         "channel": "repo",
+        "kind": repo_storage_kind(artifact_root),
         "root": artifact_root.as_posix(),
         "portfolio_snapshot_path": portfolio_snapshot_dir.as_posix(),
         "snapshot_path": snapshot_dir.as_posix(),
@@ -210,6 +219,7 @@ def publish_repo(
 
     if publish:
         artifact_dir.mkdir(parents=True, exist_ok=True)
+        ensure_asset_repo_gitattributes(artifact_root)
         published_manifest["published_at"] = datetime.now(UTC).isoformat()
         for asset in published_manifest["assets"]:
             shutil.copy2(output_dir / asset["file"], artifact_dir / asset["file"])
@@ -280,6 +290,38 @@ def safe_version_segment(value: str) -> str:
     if "/" in value or value in {"", ".", ".."}:
         raise ValueError(f"brand version is not safe for repo publishing: {value}")
     return value
+
+
+def repo_storage_kind(path: Path) -> str:
+    git_marker = path / ".git"
+    if git_marker.is_file():
+        return "git-submodule"
+    if git_marker.is_dir():
+        return "git-repository"
+    return "directory"
+
+
+def ensure_asset_repo_gitattributes(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    attributes_path = path / ".gitattributes"
+    required_lines = [
+        "*.png filter=lfs diff=lfs merge=lfs -text",
+        "*.jpg filter=lfs diff=lfs merge=lfs -text",
+        "*.jpeg filter=lfs diff=lfs merge=lfs -text",
+        "*.webp filter=lfs diff=lfs merge=lfs -text",
+        "*.gif filter=lfs diff=lfs merge=lfs -text",
+    ]
+    if attributes_path.exists():
+        existing = attributes_path.read_text(encoding="utf-8").splitlines()
+    else:
+        existing = []
+
+    missing = [line for line in required_lines if line not in existing]
+    if not missing:
+        return
+
+    lines = existing + missing
+    attributes_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def write_input_snapshot(

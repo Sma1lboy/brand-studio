@@ -7,7 +7,12 @@ on:
         description: "Campaign YAML to render before publishing."
         required: true
         type: string
-        default: workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+        default: examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+      brand_path:
+        description: "brand.lock.yaml to use for validation and render."
+        required: true
+        type: string
+        default: examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
       campaign_name:
         description: "Campaign name used by harness publish."
         required: true
@@ -48,9 +53,7 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
-      HARNESS_GATEWAY_API_KEY: ${{ secrets.HARNESS_GATEWAY_API_KEY }}
-      HARNESS_GATEWAY_BASE_URL: ${{ secrets.HARNESS_GATEWAY_BASE_URL }}
-      HARNESS_GATEWAY_IMAGE_PATH: ${{ secrets.HARNESS_GATEWAY_IMAGE_PATH }}
+      HARNESS_SKILL_CLI_COMMAND: ${{ vars.HARNESS_SKILL_CLI_COMMAND }}
       HARNESS_CDN_BUCKET: ${{ secrets.HARNESS_CDN_BUCKET }}
       HARNESS_CDN_ENDPOINT: ${{ secrets.HARNESS_CDN_ENDPOINT }}
       HARNESS_CDN_BASE_URL: ${{ secrets.HARNESS_CDN_BASE_URL }}
@@ -78,15 +81,15 @@ jobs:
         run: uv sync --locked --group dev
 
       - name: Validate campaign
-        run: uv run harness validate "${{ inputs.campaign_path }}"
+        run: uv run harness validate "${{ inputs.campaign_path }}" --brand "${{ inputs.brand_path }}"
 
       - name: Render without API calls
         if: ${{ !inputs.live_render }}
-        run: uv run harness render "${{ inputs.campaign_path }}" --dry-run
+        run: uv run harness render "${{ inputs.campaign_path }}" --brand "${{ inputs.brand_path }}" --dry-run
 
       - name: Render with image provider
         if: ${{ inputs.live_render }}
-        run: uv run harness render "${{ inputs.campaign_path }}"
+        run: uv run harness render "${{ inputs.campaign_path }}" --brand "${{ inputs.brand_path }}"
 
       - name: Publish dry-run
         if: ${{ !inputs.publish }}

@@ -52,7 +52,7 @@ class ProviderParams(BaseModel):
 class ProviderConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    gateway: str = Field(min_length=1)
+    gateway: Literal["skill-cli", "gpt-image-skill"] = "gpt-image-skill"
     model: str = Field(min_length=1)
     params: ProviderParams = Field(default_factory=ProviderParams)
 

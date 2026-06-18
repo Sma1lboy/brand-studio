@@ -5,17 +5,23 @@ import sys
 import zipfile
 from pathlib import Path
 
-EXCLUDE_NAMES = {
+EXCLUDE_ANYWHERE = {
     ".DS_Store",
-    ".env",
     ".git",
     ".pytest_cache",
     ".ruff_cache",
+    "__pycache__",
+}
+
+EXCLUDE_TOP_LEVEL = {
+    ".env",
     ".uv-venv",
     ".venv",
-    "__pycache__",
     "outputs",
+    "published",
     "releases",
+    "tests",
+    "workspace",
 }
 
 
@@ -38,7 +44,9 @@ def main() -> int:
 
 
 def should_exclude(relative: Path) -> bool:
-    return any(part in EXCLUDE_NAMES for part in relative.parts)
+    if relative.parts and relative.parts[0] in EXCLUDE_TOP_LEVEL:
+        return True
+    return any(part in EXCLUDE_ANYWHERE for part in relative.parts)
 
 
 if __name__ == "__main__":

@@ -42,10 +42,17 @@ jobs:
         run: uv run pytest
 
       - name: Validate example campaign
-        run: uv run harness validate workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+        run: >
+          uv run harness validate
+          examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+          --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
 
       - name: Render example campaign without API calls
-        run: uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml --dry-run
+        run: >
+          uv run harness render
+          examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+          --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+          --dry-run
 
       - name: Check dry-run output contract
         run: |

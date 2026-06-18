@@ -1,24 +1,36 @@
 # Marketing Harness Workflows
 
-Run commands from the repository root.
+Run commands from the product repository root. The product repo owns
+`workspace/`, `outputs/`, and `published/`; the installed skill owns the harness
+implementation.
 
-Use the `harness_entrypoint` reported by `scripts/check_harness.py` as the
-command prefix. The examples below use `uv run harness`; if the check reports
-`.venv/bin/harness`, replace `uv run harness` with that path.
+Use the `harness_entrypoint` reported by `scripts/check_harness.sh` as the
+command prefix. In this harness repo it is usually `uv run harness`. In a
+consumer repo it is usually `uv --project <skill-root> run harness`. Replace
+`uv run harness` in the examples below with the reported prefix when needed.
 
 ## Setup
+
+Consumer repo:
+
+```bash
+sh "$SKILL_ROOT/scripts/bootstrap_project.sh" .
+cp "$SKILL_ROOT/.env.example" .env
+```
+
+Harness development repo:
 
 ```bash
 uv sync
 cp .env.example .env
 ```
 
-Edit `.env` locally:
+Edit `.env` locally for the GPT Image skill/CLI:
 
 ```env
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.openai.com/v1
-HARNESS_REPO_PUBLISH_DIR=published
+HARNESS_REPO_PUBLISH_DIR=published  # usually an asset git repo or submodule
 ```
 
 `.env` is ignored by git. Never paste key values into committed files.
@@ -47,11 +59,18 @@ outputs/feature-x-launch/
 └── run.lock.json
 ```
 
-## Live Render With OpenAI
+## Live Render With GPT Image Skill CLI
 
-Confirm with the user before running because this calls OpenAI and can incur cost.
+Confirm with the user before running because this calls the configured image API
+through the GPT Image skill/CLI and can incur cost. `brand.lock.yaml` must set
+`provider.gateway` to `gpt-image-skill` or its alias `skill-cli`. The provider
+calls the local `gpt-image` CLI or the installed Codex skill launcher, then
+resizes the output to each deliverable's exact size.
 
 ```bash
+command -v gpt-image || true
+test -f ~/.codex/skills/gpt-image/scripts/generate.py && echo "gpt-image skill installed"
+
 uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
   --brand workspace/products/codefox/codefox/brand.lock.yaml
 ```
@@ -69,20 +88,6 @@ This is only the local render buffer. Do not publish it yet unless the user
 explicitly pre-approved auto-publish after render. Inspect the assets and ask
 for human acceptance before any `--publish` command.
 
-## Live Render With GPT Image Skill CLI
-
-Use this when `brand.lock.yaml` sets `provider.gateway` to `skill-cli` or
-`gpt-image-skill`. The provider calls the local `gpt-image` CLI or the installed
-Codex skill launcher, then resizes the output to each deliverable's exact size.
-
-```bash
-command -v gpt-image || true
-test -f ~/.codex/skills/gpt-image/scripts/generate.py && echo "gpt-image skill installed"
-
-uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand workspace/products/codefox/codefox/brand.lock.yaml
-```
-
 ## Publish To Repo
 
 Only enter this step after the user accepts the rendered assets, or when the
@@ -92,13 +97,13 @@ asset approval.
 Dry-run:
 
 ```bash
-uv run harness publish feature-x-launch --channel repo
+uv run harness publish feature-x-launch --channel repo --repo-dir published
 ```
 
 Write versioned artifacts:
 
 ```bash
-uv run harness publish feature-x-launch --channel repo --publish
+uv run harness publish feature-x-launch --channel repo --repo-dir published --publish
 ```
 
 Expected output:
@@ -120,6 +125,11 @@ published/products/<portfolio-id>/<brand-id>/<brand-lock-version>/
     ├── manifest.json
     └── run.lock.json
 ```
+
+`published/` is normally a separate asset repository or git submodule inside the
+product repo. Portfolio snapshots are stored there too. The harness does not run
+`git add`, `commit`, or `push`; commit the asset repo/submodule after reviewing
+the snapshot.
 
 ## Produce Style Proposal
 

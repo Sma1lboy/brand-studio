@@ -1,9 +1,0 @@
-name: "kobe-screenshot-launch"
-brief: "kobe 宣发主视觉：基于真实 TUI 截图的科技感版本"
-style: "launch-hero"
-content:
-  headline: "Run parallel coding agents from any terminal."
-  subject: "a polished but authentic promotional hero based on the provided kobe TUI screenshot: keep the dark terminal interface, orange KOBE accent, left task list, center Claude Code engine pane, right changes and shell panes, keyboard shortcut footer, and SSH-friendly terminal product feel; show kobe as a real terminal IDE for parallel AI coding agents, not a generic SaaS dashboard"
-deliverables:
-  - id: "hero-card"
-    size: [1200, 630]

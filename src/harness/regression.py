@@ -15,7 +15,7 @@ from harness.config import (
     resolve_style_alias,
 )
 from harness.manifest import MANIFEST_SCHEMA_VERSION, AssetManifestInput, checksum_file, write_json
-from harness.providers import GatewayImageProvider, GenerationRequest, ImageProvider
+from harness.providers import GenerationRequest, ImageProvider, create_provider
 from harness.render import build_asset_prompt, seed_for_asset
 
 
@@ -58,7 +58,7 @@ def run_regression(
 ) -> RegressionResult:
     brand, brand_raw = load_brand(brand_path)
     prompt_set, prompt_raw = load_regression_prompts(prompts_path)
-    provider = provider or GatewayImageProvider()
+    provider = provider or create_provider(brand.provider)
     generated_at = datetime.now(UTC).isoformat()
     run_id = generated_at.replace(":", "").replace("+", "Z")
     portfolio_id = brand.portfolio.id if brand.portfolio else brand.brand.id

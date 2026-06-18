@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import os
 import shlex
 import shutil
@@ -8,6 +9,8 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
+
+from PIL import Image, ImageOps
 
 from harness.providers.base import (
     AuthenticationError,
@@ -20,7 +23,6 @@ from harness.providers.base import (
     RateLimitError,
     TransientProviderError,
 )
-from harness.providers.openai import write_sized_image
 from harness.providers.placeholder import write_dry_run_asset
 
 OUTPUT_FORMAT_MIME_TYPES = {
@@ -223,6 +225,24 @@ def normalize_output_format(value: Any) -> str:
     if output_format not in OUTPUT_FORMAT_MIME_TYPES:
         raise ProviderError("skill-cli output_format must be one of: png, jpeg, webp")
     return output_format
+
+
+def write_sized_image(
+    image_bytes: bytes,
+    output_path: Path,
+    target_size: tuple[int, int],
+    output_format: str,
+) -> None:
+    with Image.open(io.BytesIO(image_bytes)) as image:
+        image = image.convert("RGBA") if output_format == "png" else image.convert("RGB")
+        resized = ImageOps.fit(
+            image,
+            target_size,
+            method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.5),
+        )
+        save_format = "JPEG" if output_format == "jpeg" else output_format.upper()
+        resized.save(output_path, format=save_format)
 
 
 def existing_reference_paths(request: GenerationRequest) -> list[str]:

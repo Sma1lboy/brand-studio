@@ -4,8 +4,13 @@
 
 Marketing Harness is a brand-locked image-generation pipeline. It keeps brand
 style as a single source of truth, lets each project provide only the content for
-the current campaign, calls an image-generation backend, and publishes versioned
-marketing artifacts for downstream projects to consume.
+the current campaign, calls the local GPT Image skill/CLI, and publishes
+versioned marketing artifacts for downstream projects to consume.
+
+The harness is designed to be installed once as a global agent skill and then
+used from any product repository. The product repository owns its local
+`workspace/` inputs, transient `outputs/`, and `published/` asset repository or
+submodule.
 
 The core boundary is strict:
 
@@ -21,8 +26,8 @@ content layer. Campaigns may only reference a locked `alias.style`; they must no
 inline visual style prompts, palettes, negative prompts, references, or provider
 params.
 
-Projects do not run generation. They consume published assets plus
-`manifest.json`.
+Downstream app code does not run generation. It consumes published assets plus
+`manifest.json` from the product repo's asset repository.
 
 ## Methodology
 
@@ -58,11 +63,16 @@ Responsibilities are separate:
 
 ## Quick Start
 
+When developing this harness repo directly:
+
 ```bash
 uv sync
 cp .env.example .env
-uv run harness validate workspace/products/codefox/codefox/campaigns/example.campaign.yaml
-uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml --dry-run
+uv run harness validate examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
+  --dry-run
 ```
 
 The standard entrypoint is `uv run harness`. If a machine temporarily lacks `uv`
@@ -72,12 +82,26 @@ fallback can run the same commands. Long term, keep `uv` installed on `PATH`.
 `--dry-run` does not call an image API. It writes SVG placeholders,
 `run.lock.json`, and `manifest.json`.
 
-For live generation, put credentials in `.env`:
+When using the globally installed skill from another product repo, keep the
+current directory in that product repo and run harness through the skill project:
+
+```bash
+SKILL_ROOT="$HOME/.codex/skills/marketing-harness"  # or $CLAUDE_SKILL_DIR
+sh "$SKILL_ROOT/scripts/bootstrap_project.sh" .
+uv --project "$SKILL_ROOT" run harness validate workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+  --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml
+uv --project "$SKILL_ROOT" run harness render workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+  --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml \
+  --dry-run
+```
+
+For live generation, put GPT Image skill/CLI credentials in `.env`:
 
 ```bash
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.openai.com/v1
-uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
 ## Editing Tokens
@@ -145,39 +169,19 @@ uv run harness style promote \
   --to workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
-## Provider Backends
+## Image Engine
 
-Provider selection is controlled by `src/harness/providers/factory.py`.
+The harness has one live image-generation entrypoint: the local GPT Image
+skill/CLI. `provider.gateway` must be `gpt-image-skill` or its alias
+`skill-cli`. The provider resolves `provider.params.command`, then
+`HARNESS_SKILL_CLI_COMMAND`, then `gpt-image` on `PATH`, then
+`~/.codex/skills/gpt-image/scripts/generate.py`.
 
-Built-in gateways:
-
-- `openai`: OpenAI Images API. Reads `OPENAI_API_KEY`.
-- `skill-cli`: local GPT Image skill/CLI backend. It resolves
-  `provider.params.command`, then `HARNESS_SKILL_CLI_COMMAND`, then `gpt-image`
-  on `PATH`, then `~/.codex/skills/gpt-image/scripts/generate.py`.
-- `gpt-image-skill`: alias for `skill-cli`, useful when explicitly using
-  `wuyoscar/GPT-Image2-Skill`.
-- `generic`: generic HTTP image gateway.
-- `gateway`: alias for `generic`.
-
-Example OpenAI config:
+Minimal config:
 
 ```yaml
 provider:
-  gateway: "openai"
-  model: "gpt-image-1.5"
-  params:
-    seed_strategy: "fixed"
-    seed: 12345
-    quality: "medium"
-    output_format: "png"
-```
-
-Example local GPT Image skill/CLI config:
-
-```yaml
-provider:
-  gateway: "skill-cli"
+  gateway: "gpt-image-skill"
   model: "gpt-image-2"
   params:
     seed_strategy: "fixed"
@@ -190,30 +194,8 @@ provider:
 The harness resizes/crops provider output to each campaign deliverable's exact
 size so `manifest.json` remains the delivery contract.
 
-Adding another engine means implementing `ImageProvider` and registering a
-gateway:
-
-```python
-from harness.providers import ImageProvider, register_provider
-
-
-class FalImageProvider(ImageProvider):
-    ...
-
-
-register_provider("fal", lambda config: FalImageProvider())
-```
-
-Then switch in `brand.lock.yaml`:
-
-```yaml
-provider:
-  gateway: "fal"
-  model: "fal-ai/flux-pro/..."
-```
-
-Changing provider/model/params is a brand-lock change. Bump `version` and run
-regression.
+Changing model or generation params is a brand-lock change. Bump `version` and
+run regression.
 
 ## Output Contract
 
@@ -224,7 +206,7 @@ Each render writes to `outputs/<campaign-name>/`:
   resolved prompt, actual seed/params, timestamps, sidecars, and sanitized
   provider metadata.
 - `manifest.json`: local render-buffer contract draft. Consumers use the
-  published manifest under
+  published manifest under the product repo's asset repository:
   `published/products/<portfolio-id>/<brand-id>/<brand-version>/artifacts/<campaign>/manifest.json`.
 
 Minimal consumer example:
@@ -232,7 +214,10 @@ Minimal consumer example:
 ```python
 import json
 
-manifest = json.load(open("outputs/feature-x-launch/manifest.json", encoding="utf-8"))
+manifest = json.load(open(
+    "published/products/codefox/codefox/1.1.0/artifacts/feature-x-launch/manifest.json",
+    encoding="utf-8",
+))
 hero = next(asset for asset in manifest["assets"] if asset["id"] == "web-banner")
 print(hero["url"] or hero["path"])
 ```
@@ -242,14 +227,14 @@ the images, text quality, dimensions, `manifest.json`, and `run.lock.json`. Only
 after human acceptance should you run:
 
 ```bash
-uv run harness publish <campaign> --channel repo --publish
+uv run harness publish <campaign> --channel repo --repo-dir published --publish
 ```
 
 API-cost approval is not asset approval.
 
-## Workspace And Published Layout
+## Workspace And Published Asset Repo
 
-Editable source inputs live in `workspace/`:
+Editable source inputs live in the product repository's `workspace/`:
 
 ```text
 workspace/portfolios/<portfolio-id>/
@@ -268,7 +253,9 @@ workspace/products/<portfolio-id>/<brand-id>/
 └── proposals/
 ```
 
-Published repo artifacts are immutable snapshots:
+The product repository's `published/` directory should usually be a separate
+asset git repository or submodule. It stores immutable snapshots, including the
+portfolio snapshot used for that render:
 
 ```text
 published/portfolios/<portfolio-id>/<portfolio-version>/
@@ -288,8 +275,9 @@ published/products/<portfolio-id>/<brand-id>/<brand-lock-version>/
     └── run.lock.json
 ```
 
-The repo channel does not run `git add`, `commit`, or `push`; inspect snapshots
-before committing them.
+The repo channel writes into that asset repo/submodule. It does not run
+`git add`, `commit`, or `push`; inspect snapshots, then commit the asset repo and
+pin the submodule commit from the product repo if you use submodules.
 
 ## Publishing
 
@@ -298,7 +286,7 @@ All publish commands dry-run by default:
 ```bash
 uv run harness publish feature-x-launch --channel cdn
 uv run harness publish feature-x-launch --channel release
-uv run harness publish feature-x-launch --channel repo
+uv run harness publish feature-x-launch --channel repo --repo-dir published
 ```
 
 Real publishing requires `--publish`:
@@ -306,12 +294,13 @@ Real publishing requires `--publish`:
 ```bash
 uv run harness publish feature-x-launch --channel release --publish
 uv run harness publish feature-x-launch --channel cdn --publish
-uv run harness publish feature-x-launch --channel repo --publish
+uv run harness publish feature-x-launch --channel repo --repo-dir published --publish
 ```
 
 The CDN channel uses S3-compatible object storage. Credentials are read only from
 environment variables. The release channel writes
-`releases/<campaign>-brand-<version>.zip`.
+`releases/<campaign>-brand-<version>.zip`. The repo channel writes to
+`HARNESS_REPO_PUBLISH_DIR` or `--repo-dir`, defaulting to `published`.
 
 ## Regression
 
@@ -350,9 +339,6 @@ Relevant secrets and variables:
 OPENAI_API_KEY
 OPENAI_BASE_URL
 HARNESS_SKILL_CLI_COMMAND
-HARNESS_GATEWAY_API_KEY
-HARNESS_GATEWAY_BASE_URL
-HARNESS_GATEWAY_IMAGE_PATH
 HARNESS_CDN_BUCKET
 HARNESS_CDN_ENDPOINT
 HARNESS_CDN_BASE_URL
@@ -371,9 +357,10 @@ layout: the root `SKILL.md` is the entrypoint, with YAML frontmatter
 (`name` and `description`) plus adjacent bundled resources.
 
 The harness implementation lives in the same repo-root payload:
-`src/`, `workspace/`, `published/`, `references/`, `assets/`, `scripts/`,
-`tests/`, and `pyproject.toml`. There is no nested `.claude/skills/...`
-wrapper to install or maintain.
+`src/`, `examples/`, `references/`, `assets/`, `scripts/`, tests, and
+`pyproject.toml`. Real product `workspace/` and `published/` directories belong
+to each consuming product repo, not to this central harness repo. There is no
+nested `.claude/skills/...` wrapper to install or maintain.
 
 For Claude Code, install the repo-root skill:
 
@@ -404,6 +391,15 @@ $marketing-harness create a new brand style, prefer local frontend-design
 $marketing-harness dry-run render workspace/products/codefox/codefox/campaigns/example.campaign.yaml
 ```
 
+When invoked from a product repo, the skill should run:
+
+```bash
+uv --project "$SKILL_ROOT" run harness ...
+```
+
+That keeps harness code global while resolving `workspace/`, `outputs/`, and
+`published/` relative to the current product repo.
+
 Design skills may own style production, but only up to a reviewed
 `brand.lock.yaml` proposal. They should not directly render or publish.
 
@@ -413,15 +409,18 @@ To package the skill:
 python3 scripts/package_skill.py
 ```
 
-The zip contains the repo-root skill and the harness source, excluding local
-state such as `.env`, `.venv/`, `outputs/`, and `releases/`.
+The zip contains the repo-root skill and the harness source, excluding root
+local state and product assets such as `.env`, `.venv/`, `workspace/`,
+`outputs/`, `published/`, `releases/`, and `tests/`. `examples/` is still
+packaged for `--with-example`. Tests remain in this repository and run in CI;
+they are not needed in the installed runtime skill bundle.
 
 ## CLI
 
 ```bash
 harness validate <campaign.yaml>
 harness render <campaign.yaml> [--dry-run]
-harness publish <campaign-name> [--channel cdn|release|repo] [--publish]
+harness publish <campaign-name> [--channel cdn|release|repo] [--repo-dir published] [--publish]
 harness style propose --out <proposal.lock.yaml> [--brief <brief.md>] [--source <path>]
 harness style promote <proposal.lock.yaml> --to <brand.lock.yaml>
 harness regression

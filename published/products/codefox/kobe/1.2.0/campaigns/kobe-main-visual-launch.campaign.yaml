@@ -1,9 +1,0 @@
-name: "kobe-main-visual-launch"
-brief: "kobe 宣发主视觉：用参考图配色重做终端产品海报"
-style: "launch-hero"
-content:
-  headline: "Run parallel coding agents from any terminal."
-  subject: "a polished promotional hero for kobe, an SSH-friendly TUI orchestrator for Claude Code, Codex, and Copilot agents; show the real terminal IDE as the product focal point with left task queue, central agent engine pane, right changes and shell panes, persistent sessions, and parallel worktree lanes; keep it product-led and legible for a marketing launch image"
-deliverables:
-  - id: "hero-card"
-    size: [1200, 630]

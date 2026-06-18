@@ -12,7 +12,7 @@ on:
         description: "Path to brand.lock.yaml."
         required: true
         type: string
-        default: workspace/products/codefox/codefox/brand.lock.yaml
+        default: examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
       prompts_path:
         description: "Path to the fixed regression prompt suite."
         required: true
@@ -34,9 +34,7 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
-      HARNESS_GATEWAY_API_KEY: ${{ secrets.HARNESS_GATEWAY_API_KEY }}
-      HARNESS_GATEWAY_BASE_URL: ${{ secrets.HARNESS_GATEWAY_BASE_URL }}
-      HARNESS_GATEWAY_IMAGE_PATH: ${{ secrets.HARNESS_GATEWAY_IMAGE_PATH }}
+      HARNESS_SKILL_CLI_COMMAND: ${{ vars.HARNESS_SKILL_CLI_COMMAND }}
 
     steps:
       - name: Check out repository

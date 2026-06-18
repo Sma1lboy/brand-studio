@@ -16,8 +16,8 @@ brand:
   name: "CodeFox"
 version: "1.1.0"
 provider:
-  gateway: "openai"
-  model: "gpt-image-1.5"
+  gateway: "gpt-image-skill"
+  model: "gpt-image-2"
   params: {}
 global: {}
 alias: {}
@@ -108,8 +108,8 @@ It must never contain API keys, authorization headers, or raw image base64 paylo
   },
   "brand_lock_version": "1.1.0",
   "provider": {
-    "gateway": "openai",
-    "model": "gpt-image-1.5"
+    "gateway": "gpt-image-skill",
+    "model": "gpt-image-2"
   },
   "assets": [
     {
@@ -126,11 +126,13 @@ It must never contain API keys, authorization headers, or raw image base64 paylo
 }
 ```
 
-Published repo artifacts use:
+Published repo artifacts use the product repo's `published/` asset repository
+or git submodule:
 
 ```text
 published/portfolios/<portfolio-id>/<portfolio-version>/
 published/products/<portfolio-id>/<brand-id>/<brand-lock-version>/artifacts/<campaign>/
 ```
 
-and update URLs to `repo://...`.
+Portfolio snapshots live in the same asset repository as product snapshots.
+Manifest asset URLs update to `repo://...`.

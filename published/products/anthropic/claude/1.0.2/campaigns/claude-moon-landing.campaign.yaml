@@ -1,9 +1,0 @@
-name: "claude-moon-landing"
-brief: "为 Anthropic 的 Claude 制作一张中文竖版宣发图，传达 Claude 帮助用户抵达更难的问题边界，带有登月式胜利感；这是非官方 campaign concept，不要伪装成官方公告。"
-style: "flag-launch"
-content:
-  headline: "Claude"
-  subject: "月球表面上，一面写有 Claude 的现代织物旗帜立在月壤中；旗帜周围是实体航天硬件：一枚高耸的月面着陆火箭或上升级、带折叠支腿的登月器、推进器喷口、月面探测车、太阳能板翼、天线桅杆、机械臂、仪器箱、线缆接口和金属桁架。远处能看到地球弧光，整体表达把复杂问题推进到新的边界。画面可以加入清晰小字：\"抵达更难的问题\" 和 \"For problem solvers reaching further\"。"
-deliverables:
-  - id: "moon-poster"
-    size: [1024, 1536]

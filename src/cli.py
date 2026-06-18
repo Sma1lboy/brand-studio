@@ -71,10 +71,14 @@ def publish_command(
         typer.Option("--publish", help="Perform remote write or release zip creation."),
     ] = False,
     outputs_dir: Annotated[Path, typer.Option("--outputs-dir")] = Path("outputs"),
+    repo_dir: Annotated[
+        Path | None,
+        typer.Option("--repo-dir", help="Repo-channel asset repository directory."),
+    ] = None,
 ) -> None:
     """Publish rendered artifacts. Defaults to dry-run unless --publish is set."""
     load_dotenv()
-    run_with_errors(lambda: _publish(campaign_name, channel, outputs_dir, publish))
+    run_with_errors(lambda: _publish(campaign_name, channel, outputs_dir, publish, repo_dir))
 
 
 @app.command()
@@ -164,12 +168,19 @@ def _render(campaign: Path, brand: Path, outputs_dir: Path, dry_run: bool) -> No
     typer.echo(f"Run lock: {result.run_lock_path}")
 
 
-def _publish(campaign_name: str, channel: Channel, outputs_dir: Path, publish: bool) -> None:
+def _publish(
+    campaign_name: str,
+    channel: Channel,
+    outputs_dir: Path,
+    publish: bool,
+    repo_dir: Path | None,
+) -> None:
     result = publish_campaign(
         campaign_name=campaign_name,
         channel=channel.value,
         outputs_dir=outputs_dir,
         publish=publish,
+        repo_dir=repo_dir,
     )
     mode = "published" if publish else "dry-run"
     typer.echo(f"{mode}: {result.channel}")

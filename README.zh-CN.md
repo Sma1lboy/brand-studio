@@ -2,9 +2,12 @@
 
 [English](README.md)
 
-这是一个生图 harness：把品牌风格锁定为单一可信源，项目只提交“这次要表达什么”，系统统一调用图像生成 API，产出风格一致的宣发物料，并发布为带版本的 artifact 供项目消费。
+这是一个生图 harness：把品牌风格锁定为单一可信源，项目只提交“这次要表达什么”，系统统一通过本地 GPT Image skill/CLI 调图像生成，产出风格一致的宣发物料，并发布为带版本的 artifact 供项目消费。
 
-核心边界很简单：`workspace/portfolios/<portfolio-id>/` 是母品牌 metadata 与元素库，`workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml` 是产品品牌锁定层，代表稳定品牌风格和 provider/model/参数；`workspace/products/<portfolio-id>/<brand-id>/campaigns/*.campaign.yaml` 是内容层，只能引用锁定层里已经定义好的 `alias.style`，不能自带画风描述。项目方不跑生成，只消费 `manifest.json` 或 release artifact。
+推荐使用方式是：harness 作为全局 agent skill 安装一次；每个业务 repo 自己维护
+`workspace/` 输入、`outputs/` 临时产物，以及 `published/` 资产仓或 submodule。
+
+核心边界很简单：业务 repo 里的 `workspace/portfolios/<portfolio-id>/` 是母品牌 metadata 与元素库，`workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml` 是产品品牌锁定层，代表稳定品牌风格和 provider/model/参数；`workspace/products/<portfolio-id>/<brand-id>/campaigns/*.campaign.yaml` 是内容层，只能引用锁定层里已经定义好的 `alias.style`，不能自带画风描述。下游应用代码不跑生成，只消费业务 repo 的 asset repo/submodule 里的 `manifest.json` 或 release artifact。
 
 ## 方法论依据
 
@@ -48,21 +51,41 @@ version: "1.1.0"
 
 ## 快速开始
 
+开发这个 harness repo 自身时：
+
 ```bash
 uv sync
 cp .env.example .env
-uv run harness validate workspace/products/codefox/codefox/campaigns/example.campaign.yaml
-uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml --dry-run
+uv run harness validate examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
+  --dry-run
 ```
 
 标准入口是 `uv run harness`。如果某台机器暂时没有 `uv`，但仓库已经存在 `.venv/bin/harness`，可以临时用 `.venv/bin/harness ...` 跑同样的命令；长期仍建议把 `uv` 安装到 PATH。
 
-`--dry-run` 不调用生图 API，会写 SVG 占位图、`run.lock.json` 和 `manifest.json`。当前示例 brand lock 默认使用 OpenAI Images provider；真生成时在 `.env` 里配置：
+`--dry-run` 不调用生图 API，会写 SVG 占位图、`run.lock.json` 和 `manifest.json`。
+
+在其他业务 repo 中使用全局安装的 skill 时，不需要复制 harness 源码。保持 cwd 在业务 repo，使用全局 skill 的 project 运行 harness：
+
+```bash
+SKILL_ROOT="$HOME/.codex/skills/marketing-harness"  # Claude Code 中也可能是 $CLAUDE_SKILL_DIR
+sh "$SKILL_ROOT/scripts/bootstrap_project.sh" .
+uv --project "$SKILL_ROOT" run harness validate workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+  --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml
+uv --project "$SKILL_ROOT" run harness render workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+  --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml \
+  --dry-run
+```
+
+真生成时把 GPT Image skill/CLI 需要的凭证放在 `.env`：
 
 ```bash
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.openai.com/v1
-uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
 ## Token 怎么改
@@ -142,70 +165,29 @@ uv run harness style propose \
 
 外部命令从 stdin 读取 JSON，向 stdout 写完整的 `brand.lock` YAML/JSON。harness 会继续用同一套 pydantic 和 token 引用规则校验输出。
 
-## 换 Provider 或 Model
+## 生图入口
 
-只改 `workspace/products/codefox/codefox/brand.lock.yaml` 的锁定配置：
-
-```yaml
-provider:
-  gateway: "openai"
-  model: "gpt-image-1.5"
-  params:
-    seed_strategy: "fixed"
-    seed: 12345
-    quality: "medium"
-    output_format: "png"
-```
-
-后续切到 GPT Image、Ideogram、Seedream 或其他模型时，也通过这些字段切换，不改 campaign。换 provider/model/参数属于锁定层变更，必须升 `version` 并跑 regression。
-
-Provider 选择由 `src/harness/providers/factory.py` 负责。内置 gateway：
-
-- `openai`: OpenAI Images API，读取 `OPENAI_API_KEY`。
-- `skill-cli`: 本地 GPT Image skill/CLI provider，优先使用 `provider.params.command`，其次 `HARNESS_SKILL_CLI_COMMAND`，再找 PATH 上的 `gpt-image`，最后找 `~/.codex/skills/gpt-image/scripts/generate.py`。
-- `gpt-image-skill`: `skill-cli` 的别名，适合明确标注走 `wuyoscar/GPT-Image2-Skill`。
-- `generic`: 通用 HTTP image gateway。
-- `gateway`: `generic` 的别名。
-
-OpenAI 图片接口支持固定生成尺寸。harness 会按 deliverable 的宽高比选择最近的 OpenAI 尺寸生成，再本地裁切/缩放到 campaign 要求的精确尺寸，确保 `manifest.json` 里的 size 与产物一致。
-
-使用本地 `gpt-image` skill/CLI 时，先安装 skill 和 CLI，然后只改锁定层：
+harness 现在只有一个 live 生图入口：本地 GPT Image skill/CLI。
+`provider.gateway` 必须是 `gpt-image-skill`，或它的别名 `skill-cli`。
+provider 会优先使用 `provider.params.command`，其次
+`HARNESS_SKILL_CLI_COMMAND`，再找 PATH 上的 `gpt-image`，最后找
+`~/.codex/skills/gpt-image/scripts/generate.py`。
 
 ```yaml
 provider:
-  gateway: "skill-cli"
+  gateway: "gpt-image-skill"
   model: "gpt-image-2"
   params:
     seed_strategy: "fixed"
     seed: 12345
     quality: "high"
     output_format: "png"
-    # optional; otherwise auto-resolves gpt-image / installed skill launcher
     command: "gpt-image"
 ```
 
 `skill-cli` 会把 harness 组合出的最终 prompt 传给 CLI，并把 CLI 生成图本地裁切/缩放到 deliverable 的精确尺寸。若 alias style 有 reference assets，默认会以 `-i` 传给 CLI；缺失引用会报错，可用 `strict_references: false` 临时关闭。
 
-新增 engine 时，实现 `ImageProvider`，再注册 gateway：
-
-```python
-from harness.providers import ImageProvider, register_provider
-
-
-class FalImageProvider(ImageProvider):
-    ...
-
-
-register_provider("fal", lambda config: FalImageProvider())
-```
-
-之后在 `brand.lock.yaml` 里切换：
-
-```yaml
-provider:
-  gateway: "fal"
-  model: "fal-ai/flux-pro/..."
-```
+改 model 或 params 属于锁定层变更，必须升 `version` 并跑 regression。
 
 ## 输出 Contract
 
@@ -220,18 +202,21 @@ manifest 最小消费示例：
 ```python
 import json
 
-manifest = json.load(open("outputs/feature-x-launch/manifest.json", encoding="utf-8"))
+manifest = json.load(open(
+    "published/products/codefox/codefox/1.1.0/artifacts/feature-x-launch/manifest.json",
+    encoding="utf-8",
+))
 hero = next(asset for asset in manifest["assets"] if asset["id"] == "web-banner")
 print(hero["url"] or hero["path"])
 ```
 
-`outputs/` 不提交、不作为项目方消费入口。完整生成流程是：render 成功后先人工验收图片、文字质量、尺寸和 brief 匹配度；验收通过后再执行 `harness publish <campaign> --channel repo --publish`，把快照写入 `published/products/<portfolio-id>/<brand-id>/<brand-version>/`。API 成本确认不等于产物验收通过。
+`outputs/` 不提交、不作为项目方消费入口。完整生成流程是：render 成功后先人工验收图片、文字质量、尺寸和 brief 匹配度；验收通过后再执行 `harness publish <campaign> --channel repo --repo-dir published --publish`，把快照写入当前业务 repo 的 `published/` 资产仓或 submodule。API 成本确认不等于产物验收通过。
 
 项目方应 pin `brand_lock_version` 或 release artifact 版本，不应直接运行生成。
 
 ## 输入来源演进
 
-当前仓库把“可编辑输入源”统一放在本地 `workspace/` 中：
+每个业务 repo 把“可编辑输入源”统一放在本地 `workspace/` 中：
 
 ```text
 workspace/portfolios/<portfolio-id>/
@@ -249,7 +234,7 @@ workspace/products/<portfolio-id>/<brand-id>/
 └── proposals/              待 review 的 brand.lock proposal
 ```
 
-`workspace/` 可以理解成 source buffer。这里的文件可 review、可 diff、可修改；发布时会把本次实际使用的输入复制到 `published/products/<portfolio-id>/<brand-id>/<brand-version>/...` 作为不可变快照副本。
+`workspace/` 可以理解成 source buffer。这里的文件可 review、可 diff、可修改；发布时会把本次实际使用的输入复制到业务 repo 的 `published/products/<portfolio-id>/<brand-id>/<brand-version>/...` 作为不可变快照副本。
 
 后续如果接多项目或远程素材库，不需要改变输出 contract，只需要在 `workspace` 前面加一层 source resolver，让输入既可以来自本地文件，也可以来自 URL / 对象存储 / registry：
 
@@ -275,7 +260,7 @@ workspace/products/<portfolio-id>/<brand-id>/campaigns/local/
 workspace/products/<portfolio-id>/<brand-id>/references/local/
 ```
 
-建议仍在 repo 保留最小 example，例如 `workspace/products/codefox/codefox/brand.lock.yaml`、`workspace/products/codefox/codefox/campaigns/example.campaign.yaml` 和少量参考资产；真实业务输入可以来自 URL、对象存储或项目方仓库。这个演进只改变“输入从哪里读到 workspace/cache”，不改变风格锁定层、内容层、`outputs/` render buffer、`published/` 快照和 manifest contract 的边界。
+建议这个 harness repo 只保留 bundled example，例如 `examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml`、`examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml` 和少量参考资产；真实业务输入属于各业务 repo。这个演进只改变“输入从哪里读到 workspace/cache”，不改变风格锁定层、内容层、`outputs/` render buffer、`published/` 快照和 manifest contract 的边界。
 
 ## 发布
 
@@ -284,7 +269,7 @@ workspace/products/<portfolio-id>/<brand-id>/references/local/
 ```bash
 uv run harness publish feature-x-launch --channel cdn
 uv run harness publish feature-x-launch --channel release
-uv run harness publish feature-x-launch --channel repo
+uv run harness publish feature-x-launch --channel repo --repo-dir published
 ```
 
 真正发布需要显式加 `--publish`：
@@ -292,14 +277,14 @@ uv run harness publish feature-x-launch --channel repo
 ```bash
 uv run harness publish feature-x-launch --channel release --publish
 uv run harness publish feature-x-launch --channel cdn --publish
-uv run harness publish feature-x-launch --channel repo --publish
+uv run harness publish feature-x-launch --channel repo --repo-dir published --publish
 ```
 
 live render 之后应先看 `outputs/<campaign>/` 里的图片、`manifest.json` 和 `run.lock.json`。只有用户或 reviewer 明确接受这次产物后，才把 `--publish` 当作最终发布动作。
 
 CDN 通道使用 S3-compatible object storage，凭证只从环境变量读取，不写入配置或 manifest。release 通道会生成 `releases/<campaign>-brand-<version>.zip`，包含成品、`manifest.json` 和 `run.lock.json`。
 
-repo 通道会把一次发布冻结成带 portfolio/product namespace 的仓库快照。`version` 是某个 product brand 的 `brand.lock` 版本，不是全局版本，所以路径必须包含 `portfolio.id` 和 `brand.id`：
+repo 通道会把一次发布冻结成带 portfolio/product namespace 的仓库快照。这个快照推荐写入当前业务 repo 的 `published/` asset repo 或 git submodule；portfolio 快照也一起放在这个 asset repo 中。`version` 是某个 product brand 的 `brand.lock` 版本，不是全局版本，所以路径必须包含 `portfolio.id` 和 `brand.id`：
 
 ```text
 published/portfolios/<portfolio-id>/<portfolio-version>/
@@ -329,7 +314,7 @@ published/products/<portfolio-id>/<brand-id>/<brand-lock-version>/
         └── run.lock.json
 ```
 
-目录可通过 `HARNESS_REPO_PUBLISH_DIR` 改；默认是 `published`。repo 通道不会自动执行 `git add`、`commit` 或 `push`，你可以先检查快照再提交。仓库根 `.gitattributes` 已把 `published/**/*.png|jpg|webp|gif` 配成 Git LFS，避免大图直接膨胀 Git history。
+目录可通过 `--repo-dir` 或 `HARNESS_REPO_PUBLISH_DIR` 改；默认是 `published`。repo 通道不会自动执行 `git add`、`commit` 或 `push`，你可以先检查快照，再在 asset repo/submodule 中提交，最后让业务 repo pin 对应 submodule commit。发布时会在 `published/.gitattributes` 写入图片 LFS 规则，避免大图直接膨胀 Git history。
 
 ## 回归流程
 
@@ -361,9 +346,6 @@ uv run harness regression --dry-run
 OPENAI_API_KEY
 OPENAI_BASE_URL
 HARNESS_SKILL_CLI_COMMAND   # optional local skill-cli command override
-HARNESS_GATEWAY_API_KEY     # only needed for generic gateway
-HARNESS_GATEWAY_BASE_URL    # only needed for generic gateway
-HARNESS_GATEWAY_IMAGE_PATH  # only needed for generic gateway
 HARNESS_CDN_BUCKET
 HARNESS_CDN_ENDPOINT
 HARNESS_CDN_BASE_URL
@@ -379,8 +361,10 @@ HARNESS_REPO_PUBLISH_DIR # variable, defaults to published
 本仓库本身就是一个可复用的 agent skill。它不是 Anthropic 官方维护的
 official skill，但按 Claude Agent Skill 结构组织：根目录 `SKILL.md` 是入口，
 里面有 YAML frontmatter（`name` 和 `description`）以及正文指令；旁边的
-`src/`、`workspace/`、`published/`、`references/`、`assets/`、`scripts/`、
-`tests/`、`pyproject.toml` 都属于同一个 repo-root skill payload。
+`src/`、`examples/`、`references/`、`assets/`、`scripts/`、测试和
+`pyproject.toml` 都属于同一个 repo-root skill 源码。真实业务 repo 的
+`workspace/` 和 `published/` 不属于这个中心 harness repo；示例输入放在
+`examples/codefox/workspace/`。
 
 也就是说，不再需要维护一个内嵌的 `.claude/skills/marketing-harness`
 wrapper；安装和打包时都以仓库根目录为唯一 skill 来源。
@@ -415,6 +399,15 @@ readlink ~/.codex/skills/marketing-harness
 ```
 
 这个软链只是本地安装方式，不是开发 wrapper，也不会在本仓库里创建第二份 skill。
+
+在业务 repo 中使用时，skill 应从全局位置运行 harness 代码，但所有相对路径都落在当前业务 repo：
+
+```bash
+uv --project "$SKILL_ROOT" run harness ...
+```
+
+也就是说不需要在每个业务 repo 放 project-level skill；只需要业务 repo 有自己的
+`workspace/` 和 `published/`。
 
 重开 Codex 会话后，用 `/skills` 选择 `marketing-harness`，或在 prompt 里显式 mention：
 
@@ -473,15 +466,16 @@ python3 scripts/package_skill.py
 ../marketing-harness.zip
 ```
 
-zip 会包含 repo-root skill 和 harness 源码，但排除 `.env`、`.venv/`、
-`outputs/`、`releases/` 等本地状态。
+zip 会包含 repo-root skill 和 harness 源码，但排除根目录 `.env`、`.venv/`、
+`workspace/`、`outputs/`、`published/`、`releases/`、`tests/` 等本地状态、
+业务资产和 CI 测试；`examples/` 仍会打包，用于 `--with-example`。测试仍保留在仓库源码里，只是不进默认 skill zip。
 
 ## CLI
 
 ```bash
 harness validate <campaign.yaml>
 harness render <campaign.yaml> [--dry-run]
-harness publish <campaign-name> [--channel cdn|release|repo] [--publish]
+harness publish <campaign-name> [--channel cdn|release|repo] [--repo-dir published] [--publish]
 harness style propose --out <workspace/products/codefox/codefox/proposals/name.lock.yaml> [--brief workspace/products/codefox/codefox/brief.md] [--source workspace/products/codefox/codefox/references/]
 harness style promote <proposal.lock.yaml> --to <workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml>
 harness regression

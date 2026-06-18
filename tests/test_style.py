@@ -8,6 +8,7 @@ from harness.config import load_brand, resolve_style_alias
 from harness.style import promote_style, propose_style
 
 ROOT = Path(__file__).resolve().parents[1]
+EXAMPLE_WORKSPACE = ROOT / "examples/codefox/workspace"
 
 
 def test_style_propose_generates_valid_brand_lock(tmp_path: Path) -> None:
@@ -23,7 +24,7 @@ def test_style_propose_generates_valid_brand_lock(tmp_path: Path) -> None:
     out_path = tmp_path / "brand" / "proposals" / "codefox.lock.yaml"
 
     result = propose_style(
-        base_path=ROOT / "workspace/products/codefox/codefox/brand.lock.yaml",
+        base_path=EXAMPLE_WORKSPACE / "products/codefox/codefox/brand.lock.yaml",
         out_path=out_path,
         brief_path=brief_path,
         source_paths=[references_dir],
@@ -43,7 +44,9 @@ def test_style_propose_generates_valid_brand_lock(tmp_path: Path) -> None:
 
 def test_style_promote_writes_reviewed_lock(tmp_path: Path) -> None:
     proposal = yaml.safe_load(
-        (ROOT / "workspace/products/codefox/codefox/brand.lock.yaml").read_text(encoding="utf-8")
+        (EXAMPLE_WORKSPACE / "products/codefox/codefox/brand.lock.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     proposal["version"] = "3.0.0"
     proposal_path = tmp_path / "proposal.lock.yaml"

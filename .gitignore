@@ -1,9 +1,11 @@
-.env
-.venv/
-.uv-venv/
+/.env
+/.venv/
+/.uv-venv/
 *.egg-info/
-outputs/
-releases/
+/workspace/
+/outputs/
+/published/
+/releases/
 __pycache__/
 *.py[cod]
 .pytest_cache/

@@ -14,12 +14,15 @@ from harness.config import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+EXAMPLE_WORKSPACE = ROOT / "examples/codefox/workspace"
 
 
 def test_example_config_resolves_alias_tokens() -> None:
     loaded = load_harness_config(
-        campaign_path=ROOT / "workspace/products/codefox/codefox/campaigns/example.campaign.yaml",
-        brand_path=ROOT / "workspace/products/codefox/codefox/brand.lock.yaml",
+        campaign_path=(
+            EXAMPLE_WORKSPACE / "products/codefox/codefox/campaigns/example.campaign.yaml"
+        ),
+        brand_path=EXAMPLE_WORKSPACE / "products/codefox/codefox/brand.lock.yaml",
     )
 
     assert loaded.resolved_style.name == "launch-hero"
@@ -41,21 +44,21 @@ def test_proposal_brand_lock_loads_product_sidecars(tmp_path: Path) -> None:
 
     proposal_path = proposal_dir / "proposal.lock.yaml"
     proposal_path.write_text(
-        (ROOT / "workspace/products/codefox/codefox/brand.lock.yaml").read_text(
+        (EXAMPLE_WORKSPACE / "products/codefox/codefox/brand.lock.yaml").read_text(
             encoding="utf-8"
         ),
         encoding="utf-8",
     )
     for name in ("brand.meta.yaml", "elements.yaml", "accepted.yaml"):
         (product_dir / name).write_text(
-            (ROOT / "workspace/products/codefox/codefox" / name).read_text(
-                encoding="utf-8"
-            ),
+            (EXAMPLE_WORKSPACE / "products/codefox/codefox" / name).read_text(encoding="utf-8"),
             encoding="utf-8",
         )
 
     loaded = load_harness_config(
-        campaign_path=ROOT / "workspace/products/codefox/codefox/campaigns/example.campaign.yaml",
+        campaign_path=(
+            EXAMPLE_WORKSPACE / "products/codefox/codefox/campaigns/example.campaign.yaml"
+        ),
         brand_path=proposal_path,
     )
 
@@ -69,8 +72,10 @@ def test_proposal_brand_lock_loads_product_sidecars(tmp_path: Path) -> None:
 
 def test_unknown_campaign_style_fails() -> None:
     loaded = load_harness_config(
-        campaign_path=ROOT / "workspace/products/codefox/codefox/campaigns/example.campaign.yaml",
-        brand_path=ROOT / "workspace/products/codefox/codefox/brand.lock.yaml",
+        campaign_path=(
+            EXAMPLE_WORKSPACE / "products/codefox/codefox/campaigns/example.campaign.yaml"
+        ),
+        brand_path=EXAMPLE_WORKSPACE / "products/codefox/codefox/brand.lock.yaml",
     )
 
     with pytest.raises(UnknownStyleError, match="does-not-exist"):
@@ -79,7 +84,9 @@ def test_unknown_campaign_style_fails() -> None:
 
 def test_broken_global_reference_reports_alias_context(tmp_path: Path) -> None:
     brand = yaml.safe_load(
-        (ROOT / "workspace/products/codefox/codefox/brand.lock.yaml").read_text(encoding="utf-8")
+        (EXAMPLE_WORKSPACE / "products/codefox/codefox/brand.lock.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     brand["alias"]["style"]["launch-hero"]["$value"]["prompt"] = "{global.style-fragment.missing}"
     brand_path = tmp_path / "brand.lock.yaml"
@@ -88,7 +95,7 @@ def test_broken_global_reference_reports_alias_context(tmp_path: Path) -> None:
     with pytest.raises(TokenReferenceError, match=r"alias\.style\.launch-hero.*missing"):
         load_harness_config(
             campaign_path=(
-                ROOT / "workspace/products/codefox/codefox/campaigns/example.campaign.yaml"
+                EXAMPLE_WORKSPACE / "products/codefox/codefox/campaigns/example.campaign.yaml"
             ),
             brand_path=brand_path,
         )
@@ -96,7 +103,7 @@ def test_broken_global_reference_reports_alias_context(tmp_path: Path) -> None:
 
 def test_campaign_cannot_inline_style_description(tmp_path: Path) -> None:
     campaign = yaml.safe_load(
-        (ROOT / "workspace/products/codefox/codefox/campaigns/example.campaign.yaml").read_text(
+        (EXAMPLE_WORKSPACE / "products/codefox/codefox/campaigns/example.campaign.yaml").read_text(
             encoding="utf-8"
         )
     )
@@ -107,5 +114,5 @@ def test_campaign_cannot_inline_style_description(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="extra_forbidden"):
         load_harness_config(
             campaign_path=campaign_path,
-            brand_path=ROOT / "workspace/products/codefox/codefox/brand.lock.yaml",
+            brand_path=EXAMPLE_WORKSPACE / "products/codefox/codefox/brand.lock.yaml",
         )

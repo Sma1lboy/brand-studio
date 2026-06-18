@@ -1,9 +1,0 @@
-name: "kobe-launch"
-brief: "kobe 宣发主视觉：SSH-friendly TUI for parallel AI coding agents"
-style: "launch-hero"
-content:
-  headline: "Run parallel coding agents from any terminal."
-  subject: "a futuristic dark terminal hero image for kobe, an SSH-friendly TUI orchestrator for Claude Code, Codex, and Copilot agents; show isolated git worktrees as five parallel tmux lanes, a central engine pane, task list, ops pane, shell pane, persistent sessions, and branching agent attempts; keep the mood close to the provided black TUI reference image with minimal monospace text and high-tech cyan green accents"
-deliverables:
-  - id: "hero-card"
-    size: [1200, 630]

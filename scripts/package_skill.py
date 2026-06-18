@@ -26,10 +26,13 @@ EXCLUDE_TOP_LEVEL = {
 
 
 def main() -> int:
-    skill_dir = Path(__file__).resolve().parents[1]
-    default_output = skill_dir.parent / f"{skill_dir.name}.zip"
+    repo_root = Path(__file__).resolve().parents[1]
+    skill_dir = repo_root / "skills" / "marketing-harness"
+    default_output = repo_root.parent / "marketing-harness.zip"
     output = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else default_output
     output.parent.mkdir(parents=True, exist_ok=True)
+    if not (skill_dir / "SKILL.md").is_file():
+        raise SystemExit(f"Missing skill payload: {skill_dir / 'SKILL.md'}")
 
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(skill_dir.rglob("*")):

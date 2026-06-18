@@ -67,11 +67,11 @@ When developing this harness repo directly:
 
 ```bash
 uv sync
-cp .env.example .env
-uv run harness validate examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
-uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
+cp skills/marketing-harness/.env.example .env
+uv run harness validate skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+uv run harness render skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
   --dry-run
 ```
 
@@ -83,14 +83,14 @@ fallback can run the same commands. Long term, keep `uv` installed on `PATH`.
 `run.lock.json`, and `manifest.json`.
 
 When using the globally installed skill from another product repo, keep the
-current directory in that product repo and run harness through the skill project:
+current directory in that product repo and run harness through the skill launcher:
 
 ```bash
 SKILL_ROOT="$HOME/.codex/skills/marketing-harness"  # or $CLAUDE_SKILL_DIR
 sh "$SKILL_ROOT/scripts/bootstrap_project.sh" .
-uv --project "$SKILL_ROOT" run harness validate workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" validate workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
   --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml
-uv --project "$SKILL_ROOT" run harness render workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" render workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
   --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml \
   --dry-run
 ```
@@ -100,8 +100,8 @@ For live generation, put GPT Image skill/CLI credentials in `.env`:
 ```bash
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.openai.com/v1
-uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+uv run harness render skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
 ## Editing Tokens
@@ -351,33 +351,31 @@ HARNESS_REPO_PUBLISH_DIR
 
 ## Agent Skill
 
-This repository is itself the reusable agent skill. It is not an
-Anthropic-maintained official skill, but it follows the Claude Agent Skill
-layout: the root `SKILL.md` is the entrypoint, with YAML frontmatter
-(`name` and `description`) plus adjacent bundled resources.
+This repository is the development repository. The installable skill payload is
+`skills/marketing-harness/`. It is not an Anthropic-maintained official skill,
+but it follows the Claude Agent Skill layout: `SKILL.md` is the entrypoint, with
+YAML frontmatter (`name` and `description`) plus adjacent bundled resources.
 
-The harness implementation lives in the same repo-root payload:
-`src/`, `examples/`, `references/`, `assets/`, `scripts/`, tests, and
-`pyproject.toml`. Real product `workspace/` and `published/` directories belong
-to each consuming product repo, not to this central harness repo. There is no
-nested `.claude/skills/...` wrapper to install or maintain.
+The CLI implementation remains in the repo root (`src/`, `pyproject.toml`,
+`tests/`). The skill folder contains workflow instructions, examples, assets,
+references, bootstrap scripts, and `scripts/harness.py`, a launcher that finds
+the CLI locally or falls back to `uvx`.
 
-For Claude Code, install the repo-root skill:
+For Claude Code, install the `marketing-harness` skill from this repo:
 
 ```bash
 npx skills add CodeFox-Repo/marketing-harness \
+  --skill marketing-harness \
   --agent claude-code
 ```
 
-If a tool asks which skill to install, choose `marketing-harness`. Because the
-repo root has `SKILL.md`, the installed skill carries the harness source and
-workflow references as one self-contained payload.
+If a tool asks which skill to install, choose `marketing-harness`.
 
-For Codex local use, point the global skill entry at the repository root:
+For Codex local use, point the global skill entry at the skill folder:
 
 ```bash
 mkdir -p ~/.codex/skills
-ln -s "$PWD" ~/.codex/skills/marketing-harness
+ln -s "$PWD/skills/marketing-harness" ~/.codex/skills/marketing-harness
 ```
 
 That symlink is only a local installation mechanism. It is not a development
@@ -394,11 +392,12 @@ $marketing-harness dry-run render workspace/products/codefox/codefox/campaigns/e
 When invoked from a product repo, the skill should run:
 
 ```bash
-uv --project "$SKILL_ROOT" run harness ...
+python3 "$SKILL_ROOT/scripts/harness.py" ...
 ```
 
-That keeps harness code global while resolving `workspace/`, `outputs/`, and
-`published/` relative to the current product repo.
+The launcher uses `HARNESS_PROJECT_DIR`, a local development checkout, an
+installed `harness` CLI, or remote `uvx` fallback. All relative `workspace/`,
+`outputs/`, and `published/` paths still resolve in the current product repo.
 
 Design skills may own style production, but only up to a reviewed
 `brand.lock.yaml` proposal. They should not directly render or publish.
@@ -409,11 +408,10 @@ To package the skill:
 python3 scripts/package_skill.py
 ```
 
-The zip contains the repo-root skill and the harness source, excluding root
-local state and product assets such as `.env`, `.venv/`, `workspace/`,
-`outputs/`, `published/`, `releases/`, and `tests/`. `examples/` is still
-packaged for `--with-example`. Tests remain in this repository and run in CI;
-they are not needed in the installed runtime skill bundle.
+The zip contains only `skills/marketing-harness/`: `SKILL.md`, launcher scripts,
+references, assets, and examples. It does not include root `src/` or `tests/`;
+the launcher uses a local checkout, installed CLI, or `uvx` remote fallback for
+the actual harness runtime.
 
 ## CLI
 

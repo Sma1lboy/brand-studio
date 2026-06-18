@@ -1,21 +1,18 @@
 ---
 name: marketing-harness
 description: >-
-  Use this repository as a self-contained marketing image-generation harness
-  skill for Claude Code or other agents. Trigger when the user wants to create
-  brand-locked marketing assets, define or promote brand.lock design tokens,
-  validate campaign YAML, run regression, render via the local GPT Image
-  skill/CLI entrypoint, publish versioned artifacts, or bootstrap a local
-  harness workspace.
+  Use this skill to operate the marketing-harness CLI from a product repo:
+  bootstrap workspace folders, validate brand.lock/campaign YAML, propose or
+  promote brand design tokens, run regression, render through the GPT Image
+  skill/CLI provider, and publish versioned marketing artifacts.
 ---
 
 # Marketing Harness
 
-This repository is the reusable skill payload. Install it globally once, then
-run it against the current product repository. The current repository owns
-`workspace/`, `outputs/`, and `published/`; the installed skill provides the
-Python harness, schemas, the single GPT Image skill adapter, bundled examples,
-and workflows.
+This folder is the reusable skill payload. Install it globally once, then run it
+from the current product repository. The product repository owns `workspace/`,
+`outputs/`, and `published/`; this skill provides workflow instructions,
+bootstrap scripts, examples, and a launcher for the `harness` CLI.
 
 Preserve the boundary:
 
@@ -32,13 +29,26 @@ Keep these roots separate:
 
 - **Project root:** the user's current product repo. Relative paths such as
   `workspace/...`, `outputs/...`, and `published/...` resolve here.
-- **Skill root:** this installed marketing-harness skill. It contains
-  `pyproject.toml`, `src/harness/`, `scripts/`, `references/`, and examples.
+- **Skill root:** this installed `skills/marketing-harness` folder. It contains
+  `SKILL.md`, `scripts/`, `references/`, `assets/`, and `examples/`.
+- **Harness project root:** an optional local checkout of this repository. It
+  contains `pyproject.toml`, `src/harness/`, and tests.
 
-If the current working directory itself contains `pyproject.toml` and
-`src/harness/`, it is both the skill root and a development project root.
-Otherwise use `$CLAUDE_SKILL_DIR` when available, or the installed Codex skill
-path such as `~/.codex/skills/marketing-harness`.
+Resolve the skill root from `$CLAUDE_SKILL_DIR` when available, otherwise from
+the installed Codex skill path such as `~/.codex/skills/marketing-harness`.
+
+The launcher is:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py"
+```
+
+It resolves the actual CLI in this order:
+
+1. `HARNESS_PROJECT_DIR`: local checkout, run as `uv --project <dir> run harness`.
+2. Ancestor repository of this skill folder, for development checkouts.
+3. `harness` already installed on `PATH`.
+4. Remote fallback: `uvx --from git+https://github.com/CodeFox-Repo/marketing-harness harness`.
 
 Run the initial check from the project root:
 
@@ -46,19 +56,8 @@ Run the initial check from the project root:
 sh "$SKILL_ROOT/scripts/check_harness.sh" .
 ```
 
-Use `harness_entrypoint` from the check output as the command prefix. In a
-consumer repo it is normally:
-
-```bash
-uv --project "$SKILL_ROOT" run harness
-```
-
-In command examples below, `$HARNESS` means "replace with the
-`harness_entrypoint` string from the check output".
-
-This runs harness code from the global skill while reading and writing relative
-paths in the current product repo. Do not copy this skill into each product
-repo unless the user is intentionally developing the harness itself.
+In command examples below, `$HARNESS` means the launcher command above. It runs
+while keeping relative paths rooted in the current product repo.
 
 For a fresh product repo, initialize only the local project folders:
 
@@ -94,6 +93,8 @@ Selection order for design producers:
    reviewed brief and references.
 
 Do not download, clone, or install a remote design skill as an implicit fallback.
+The harness CLI itself may use its `uvx` remote fallback when no local harness
+checkout or installed CLI exists.
 
 Proposal flow:
 
@@ -168,10 +169,12 @@ After code or workflow changes:
 ```bash
 uv run ruff check .
 uv run pytest
-uv run harness validate examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
-uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
+python3 skills/marketing-harness/scripts/harness.py validate \
+  skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+python3 skills/marketing-harness/scripts/harness.py render \
+  skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
   --dry-run
 ```
 

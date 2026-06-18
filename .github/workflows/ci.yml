@@ -44,15 +44,22 @@ jobs:
       - name: Validate example campaign
         run: >
           uv run harness validate
-          examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
-          --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+          skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+          --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
 
       - name: Render example campaign without API calls
         run: >
           uv run harness render
-          examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
-          --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+          skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+          --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
           --dry-run
+
+      - name: Validate launcher smoke
+        run: |
+          python3 skills/marketing-harness/scripts/harness.py --resolve
+          python3 skills/marketing-harness/scripts/harness.py validate \
+            skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+            --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
 
       - name: Check dry-run output contract
         run: |

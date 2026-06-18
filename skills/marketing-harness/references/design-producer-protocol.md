@@ -3,7 +3,8 @@
 The harness can delegate style production to an external command:
 
 ```bash
-uv run harness style propose \
+HARNESS_SCRIPT="$SKILL_ROOT/scripts/harness.py"
+python3 "$HARNESS_SCRIPT" style propose \
   --producer command \
   --producer-command "./scripts/design-skill-producer" \
   --base workspace/products/codefox/codefox/brand.lock.yaml \

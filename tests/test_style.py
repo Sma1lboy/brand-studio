@@ -8,7 +8,7 @@ from harness.config import load_brand, resolve_style_alias
 from harness.style import promote_style, propose_style
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_WORKSPACE = ROOT / "examples/codefox/workspace"
+EXAMPLE_WORKSPACE = ROOT / "skills/marketing-harness/examples/codefox/workspace"
 
 
 def test_style_propose_generates_valid_brand_lock(tmp_path: Path) -> None:

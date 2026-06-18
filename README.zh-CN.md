@@ -55,11 +55,11 @@ version: "1.1.0"
 
 ```bash
 uv sync
-cp .env.example .env
-uv run harness validate examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
-uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
+cp skills/marketing-harness/.env.example .env
+uv run harness validate skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+uv run harness render skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml \
   --dry-run
 ```
 
@@ -67,14 +67,14 @@ uv run harness render examples/codefox/workspace/products/codefox/codefox/campai
 
 `--dry-run` 不调用生图 API，会写 SVG 占位图、`run.lock.json` 和 `manifest.json`。
 
-在其他业务 repo 中使用全局安装的 skill 时，不需要复制 harness 源码。保持 cwd 在业务 repo，使用全局 skill 的 project 运行 harness：
+在其他业务 repo 中使用全局安装的 skill 时，不需要复制 harness 源码。保持 cwd 在业务 repo，使用 skill 里的 launcher 运行 harness：
 
 ```bash
 SKILL_ROOT="$HOME/.codex/skills/marketing-harness"  # Claude Code 中也可能是 $CLAUDE_SKILL_DIR
 sh "$SKILL_ROOT/scripts/bootstrap_project.sh" .
-uv --project "$SKILL_ROOT" run harness validate workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" validate workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
   --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml
-uv --project "$SKILL_ROOT" run harness render workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" render workspace/products/<portfolio-id>/<brand-id>/campaigns/<name>.campaign.yaml \
   --brand workspace/products/<portfolio-id>/<brand-id>/brand.lock.yaml \
   --dry-run
 ```
@@ -84,8 +84,8 @@ uv --project "$SKILL_ROOT" run harness render workspace/products/<portfolio-id>/
 ```bash
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://api.openai.com/v1
-uv run harness render examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-  --brand examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+uv run harness render skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+  --brand skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
 ## Token 怎么改
@@ -260,7 +260,7 @@ workspace/products/<portfolio-id>/<brand-id>/campaigns/local/
 workspace/products/<portfolio-id>/<brand-id>/references/local/
 ```
 
-建议这个 harness repo 只保留 bundled example，例如 `examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml`、`examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml` 和少量参考资产；真实业务输入属于各业务 repo。这个演进只改变“输入从哪里读到 workspace/cache”，不改变风格锁定层、内容层、`outputs/` render buffer、`published/` 快照和 manifest contract 的边界。
+建议这个 harness repo 只保留 bundled example，例如 `skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml`、`skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml` 和少量参考资产；真实业务输入属于各业务 repo。这个演进只改变“输入从哪里读到 workspace/cache”，不改变风格锁定层、内容层、`outputs/` render buffer、`published/` 快照和 manifest contract 的边界。
 
 ## 发布
 
@@ -358,38 +358,35 @@ HARNESS_REPO_PUBLISH_DIR # variable, defaults to published
 
 ## Agent Skill
 
-本仓库本身就是一个可复用的 agent skill。它不是 Anthropic 官方维护的
-official skill，但按 Claude Agent Skill 结构组织：根目录 `SKILL.md` 是入口，
-里面有 YAML frontmatter（`name` 和 `description`）以及正文指令；旁边的
-`src/`、`examples/`、`references/`、`assets/`、`scripts/`、测试和
-`pyproject.toml` 都属于同一个 repo-root skill 源码。真实业务 repo 的
-`workspace/` 和 `published/` 不属于这个中心 harness repo；示例输入放在
-`examples/codefox/workspace/`。
+本仓库是开发仓库；真正可安装的 skill payload 在
+`skills/marketing-harness/`。它不是 Anthropic 官方维护的 official skill，但按
+Claude Agent Skill 结构组织：`SKILL.md` 是入口，里面有 YAML frontmatter
+（`name` 和 `description`）以及正文指令；旁边是 `scripts/`、`references/`、
+`assets/` 和 `examples/`。
 
-也就是说，不再需要维护一个内嵌的 `.claude/skills/marketing-harness`
-wrapper；安装和打包时都以仓库根目录为唯一 skill 来源。
+CLI 实现仍在仓库根目录：`src/`、`pyproject.toml` 和 `tests/`。skill 里有
+`scripts/harness.py` launcher，会优先找本地 checkout / 已安装 CLI，找不到时
+用 `uvx` 远端 fallback。
 
 ### Claude Code 使用
 
-从 GitHub 安装 repo-root skill：
+从 GitHub 安装 `marketing-harness` 这个子目录 skill：
 
 ```bash
 npx skills add CodeFox-Repo/marketing-harness \
+  --skill marketing-harness \
   --agent claude-code
 ```
 
-如果工具询问安装哪个 skill，选择 `marketing-harness`。因为 repo 根目录有
-`SKILL.md`，安装结果会携带 harness 源码和 workflow references，形成一个
-self-contained payload。
+如果工具询问安装哪个 skill，选择 `marketing-harness`。
 
 ### Codex 本地使用
 
-Codex 从 `~/.codex/skills/` 发现本地 skill。本地使用时推荐软链到 repo 根目录，
-让整个 repo 作为唯一 skill 来源：
+Codex 从 `~/.codex/skills/` 发现本地 skill。本地使用时推荐软链到 skill 子目录：
 
 ```bash
 mkdir -p ~/.codex/skills
-ln -s "$PWD" ~/.codex/skills/marketing-harness
+ln -s "$PWD/skills/marketing-harness" ~/.codex/skills/marketing-harness
 ```
 
 如果软链已存在，先确认它指向本仓库：
@@ -400,14 +397,15 @@ readlink ~/.codex/skills/marketing-harness
 
 这个软链只是本地安装方式，不是开发 wrapper，也不会在本仓库里创建第二份 skill。
 
-在业务 repo 中使用时，skill 应从全局位置运行 harness 代码，但所有相对路径都落在当前业务 repo：
+在业务 repo 中使用时，skill 应从全局位置运行 harness launcher，但所有相对路径都落在当前业务 repo：
 
 ```bash
-uv --project "$SKILL_ROOT" run harness ...
+python3 "$SKILL_ROOT/scripts/harness.py" ...
 ```
 
-也就是说不需要在每个业务 repo 放 project-level skill；只需要业务 repo 有自己的
-`workspace/` 和 `published/`。
+launcher 会按顺序使用 `HARNESS_PROJECT_DIR`、本地开发 checkout、PATH 上的
+`harness` CLI，最后用 `uvx --from git+https://github.com/CodeFox-Repo/marketing-harness`
+远端 fallback。业务 repo 只需要自己的 `workspace/` 和 `published/`。
 
 重开 Codex 会话后，用 `/skills` 选择 `marketing-harness`，或在 prompt 里显式 mention：
 
@@ -466,9 +464,9 @@ python3 scripts/package_skill.py
 ../marketing-harness.zip
 ```
 
-zip 会包含 repo-root skill 和 harness 源码，但排除根目录 `.env`、`.venv/`、
-`workspace/`、`outputs/`、`published/`、`releases/`、`tests/` 等本地状态、
-业务资产和 CI 测试；`examples/` 仍会打包，用于 `--with-example`。测试仍保留在仓库源码里，只是不进默认 skill zip。
+zip 只包含 `skills/marketing-harness/`：`SKILL.md`、launcher scripts、
+references、assets 和 examples。它不包含根目录 `src/` 或 `tests/`；真实 runtime
+由本地 checkout、已安装 CLI 或 `uvx` 远端 fallback 提供。
 
 ## CLI
 

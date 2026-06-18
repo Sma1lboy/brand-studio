@@ -7,12 +7,12 @@ on:
         description: "Campaign YAML to render before publishing."
         required: true
         type: string
-        default: examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
+        default: skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
       brand_path:
         description: "brand.lock.yaml to use for validation and render."
         required: true
         type: string
-        default: examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+        default: skills/marketing-harness/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
       campaign_name:
         description: "Campaign name used by harness publish."
         required: true

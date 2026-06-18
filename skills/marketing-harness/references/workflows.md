@@ -1,13 +1,17 @@
 # Marketing Harness Workflows
 
 Run commands from the product repository root. The product repo owns
-`workspace/`, `outputs/`, and `published/`; the installed skill owns the harness
-implementation.
+`workspace/`, `outputs/`, and `published/`; the installed skill owns workflow
+instructions and the harness launcher.
 
-Use the `harness_entrypoint` reported by `scripts/check_harness.sh` as the
-command prefix. In this harness repo it is usually `uv run harness`. In a
-consumer repo it is usually `uv --project <skill-root> run harness`. Replace
-`uv run harness` in the examples below with the reported prefix when needed.
+Set the launcher path once:
+
+```bash
+HARNESS_SCRIPT="$SKILL_ROOT/scripts/harness.py"
+```
+
+The launcher prefers `HARNESS_PROJECT_DIR`, then a local development checkout,
+then `harness` on PATH, then `uvx --from git+https://github.com/CodeFox-Repo/marketing-harness`.
 
 ## Setup
 
@@ -22,7 +26,7 @@ Harness development repo:
 
 ```bash
 uv sync
-cp .env.example .env
+cp skills/marketing-harness/.env.example .env
 ```
 
 Edit `.env` locally for the GPT Image skill/CLI:
@@ -38,14 +42,14 @@ HARNESS_REPO_PUBLISH_DIR=published  # usually an asset git repo or submodule
 ## Validate Existing Campaign
 
 ```bash
-uv run harness validate workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+python3 "$HARNESS_SCRIPT" validate workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
   --brand workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
 ## Dry-Run Render
 
 ```bash
-uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+python3 "$HARNESS_SCRIPT" render workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
   --brand workspace/products/codefox/codefox/brand.lock.yaml \
   --dry-run
 ```
@@ -71,7 +75,7 @@ resizes the output to each deliverable's exact size.
 command -v gpt-image || true
 test -f ~/.codex/skills/gpt-image/scripts/generate.py && echo "gpt-image skill installed"
 
-uv run harness render workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+python3 "$HARNESS_SCRIPT" render workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
   --brand workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
@@ -97,13 +101,13 @@ asset approval.
 Dry-run:
 
 ```bash
-uv run harness publish feature-x-launch --channel repo --repo-dir published
+python3 "$HARNESS_SCRIPT" publish feature-x-launch --channel repo --repo-dir published
 ```
 
 Write versioned artifacts:
 
 ```bash
-uv run harness publish feature-x-launch --channel repo --repo-dir published --publish
+python3 "$HARNESS_SCRIPT" publish feature-x-launch --channel repo --repo-dir published --publish
 ```
 
 Expected output:
@@ -143,7 +147,7 @@ Design skill routing is intentionally fuzzy:
 - The built-in local harness producer is only a deterministic scaffold; do not treat it as a replacement for creative style production from scratch unless the user explicitly accepts that tradeoff.
 
 ```bash
-uv run harness style propose \
+python3 "$HARNESS_SCRIPT" style propose \
   --base workspace/products/codefox/codefox/brand.lock.yaml \
   --brief workspace/products/codefox/codefox/brief.md \
   --source workspace/products/codefox/codefox/references/ \
@@ -154,14 +158,14 @@ uv run harness style propose \
 Then validate:
 
 ```bash
-uv run harness validate workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
+python3 "$HARNESS_SCRIPT" validate workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
   --brand workspace/products/codefox/codefox/proposals/<brand-name>.lock.yaml
 ```
 
 Run regression before promotion:
 
 ```bash
-uv run harness regression \
+python3 "$HARNESS_SCRIPT" regression \
   --brand workspace/products/codefox/codefox/proposals/<brand-name>.lock.yaml \
   --dry-run
 ```
@@ -169,7 +173,7 @@ uv run harness regression \
 Promote only after user review:
 
 ```bash
-uv run harness style promote \
+python3 "$HARNESS_SCRIPT" style promote \
   workspace/products/codefox/codefox/proposals/<brand-name>.lock.yaml \
   --to workspace/products/codefox/<brand-name>/brand.lock.yaml
 ```
@@ -179,7 +183,7 @@ uv run harness style promote \
 Use `--producer command` when an external design skill or script will generate the complete brand lock proposal:
 
 ```bash
-uv run harness style propose \
+python3 "$HARNESS_SCRIPT" style propose \
   --producer command \
   --producer-command "./scripts/design-skill-producer" \
   --base workspace/products/codefox/codefox/brand.lock.yaml \
@@ -196,7 +200,7 @@ The command contract is documented in `references/design-producer-protocol.md`.
 Regression does not auto-score image quality.
 
 ```bash
-uv run harness regression --brand workspace/products/codefox/codefox/brand.lock.yaml
+python3 "$HARNESS_SCRIPT" regression --brand workspace/products/codefox/codefox/brand.lock.yaml
 ```
 
 Fill in the generated `scores.csv` manually. If quality drops, do not promote or publish the style change.

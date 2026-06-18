@@ -5,20 +5,8 @@ project="${1:-.}"
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 skill_root=$(CDPATH= cd -- "$script_dir/.." && pwd -P)
 project_root=$(CDPATH= cd -- "$project" && pwd -P)
-
-source_missing=""
-for path in \
-  pyproject.toml \
-  src/cli.py \
-  src/harness/config.py \
-  src/harness/render.py \
-  src/harness/publish.py \
-  src/harness/style.py
-do
-  if [ ! -e "$skill_root/$path" ]; then
-    source_missing="${source_missing} $path"
-  fi
-done
+harness_launcher="$skill_root/scripts/harness.py"
+python_path=$(command -v python3 || command -v python || true)
 
 project_missing=""
 for path in workspace/portfolios workspace/products; do
@@ -28,27 +16,11 @@ for path in workspace/portfolios workspace/products; do
 done
 
 uv_path=$(command -v uv || true)
-local_source=1
-for path in \
-  pyproject.toml \
-  src/cli.py \
-  src/harness/config.py \
-  src/harness/render.py \
-  src/harness/publish.py \
-  src/harness/style.py
-do
-  if [ ! -e "$project_root/$path" ]; then
-    local_source=0
-  fi
-done
-
-harness_entrypoint=""
-if [ -n "$uv_path" ] && [ "$local_source" -eq 1 ]; then
-  harness_entrypoint="uv run harness"
-elif [ -n "$uv_path" ]; then
-  harness_entrypoint="uv --project $skill_root run harness"
-elif [ -x "$skill_root/.venv/bin/harness" ]; then
-  harness_entrypoint="$skill_root/.venv/bin/harness"
+resolved_harness_command=""
+launcher_ready=false
+if [ -n "$python_path" ] && [ -f "$harness_launcher" ]; then
+  launcher_ready=true
+  resolved_harness_command=$("$python_path" "$harness_launcher" --resolve 2>/dev/null || true)
 fi
 
 published_kind="missing"
@@ -69,17 +41,19 @@ fi
 cat <<EOF
 project_root=$project_root
 skill_root=$skill_root
-source_missing=${source_missing# }
 project_missing=${project_missing# }
 project_ready=$project_ready
+python_path=$python_path
 uv_path=$uv_path
-harness_entrypoint=$harness_entrypoint
+harness_entrypoint=$python_path $harness_launcher
+resolved_harness_command=$resolved_harness_command
+launcher_ready=$launcher_ready
 env_exists=$([ -f "$project_root/.env" ] && echo true || echo false)
 outputs_exists=$([ -d "$project_root/outputs" ] && echo true || echo false)
 published_exists=$([ -d "$project_root/published" ] && echo true || echo false)
 published_git_kind=$published_kind
 EOF
 
-if [ -n "$source_missing" ] || [ -z "$harness_entrypoint" ]; then
+if [ "$launcher_ready" != true ] || [ -z "$resolved_harness_command" ]; then
   exit 1
 fi

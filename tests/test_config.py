@@ -14,7 +14,7 @@ from harness.config import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_WORKSPACE = ROOT / "examples/codefox/workspace"
+EXAMPLE_WORKSPACE = ROOT / "skills/marketing-harness/examples/codefox/workspace"
 
 
 def test_example_config_resolves_alias_tokens() -> None:

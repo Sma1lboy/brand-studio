@@ -10,11 +10,11 @@ from types import ModuleType
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = ROOT / "skills" / "marketing-harness" / "scripts" / "harness.py"
+SCRIPT_PATH = ROOT / "skills" / "brand-studio" / "scripts" / "harness.py"
 
 
 def load_launcher() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("marketing_harness_skill_launcher", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location("brand_studio_skill_launcher", SCRIPT_PATH)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -103,7 +103,7 @@ def test_launcher_resolves_to_bundled_cli() -> None:
 
     assert launcher.bundled_cli_command() == [
         sys.executable,
-        str(ROOT / "skills/marketing-harness/scripts/cli.py"),
+        str(ROOT / "skills/brand-studio/scripts/cli.py"),
     ]
 
 
@@ -135,7 +135,7 @@ def test_bootstrap_is_dry_run_until_write(
 
 def test_publish_is_not_a_user_facing_command() -> None:
     completed = subprocess.run(
-        [sys.executable, str(ROOT / "skills/marketing-harness/scripts/cli.py"), "--help"],
+        [sys.executable, str(ROOT / "skills/brand-studio/scripts/cli.py"), "--help"],
         text=True,
         capture_output=True,
         check=False,

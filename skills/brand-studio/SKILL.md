@@ -1,13 +1,13 @@
 ---
-name: marketing-harness
+name: brand-studio
 description: >-
-  Use this skill to operate thin marketing-harness scripts from a product repo:
+  Use this skill to operate thin brand-studio scripts from a product repo:
   read YAML/JSON metadata, plan theme-locked campaigns, validate theme.md and
   campaign YAML, export producer-ready dry-run context, and record only
   user-accepted assets into repo-owned visual state.
 ---
 
-# Marketing Harness
+# Brand Studio
 
 This folder is the reusable skill payload. It should stay thin: `SKILL.md`,
 small scripts, references, and templates. The runtime lives under `scripts/`;
@@ -60,8 +60,8 @@ organization:
   name: My Org
 
 skillDistribution:
-  upstream: CodeFox-Repo/marketing-harness
-  fork: my-org/marketing-harness
+  upstream: CodeFox-Repo/brand-studio
+  fork: my-org/brand-studio
   scope: org
   ref: main
 
@@ -118,7 +118,7 @@ policy:
   allowRootWorkspaceBootstrap: false
 ```
 
-`assets/marketing-harness-template.yaml` contains a copyable starter. If the
+`assets/brand-studio-template.yaml` contains a copyable starter. If the
 repo already has its own marketing/branding layout, match it instead of moving
 files to a generic root-level directory.
 
@@ -142,7 +142,7 @@ Keep these roots separate:
   found under declared asset roots and read before production.
 - **Related repo state:** local sibling repo metadata/state declared under
   `sources.relatedRepos`.
-- **Skill root:** this installed `skills/marketing-harness` folder.
+- **Skill root:** this installed `skills/brand-studio` folder.
 
 Do not create root-level `workspace/`, `outputs/`, `published/`, or `releases/`
 by default. Use metadata paths.
@@ -242,7 +242,7 @@ After code or workflow changes:
 ```bash
 uv run ruff check .
 uv run pytest
-cd skills/marketing-harness/examples/codefox
+cd skills/brand-studio/examples/codefox
 python3 ../../scripts/harness.py --metadata marketing.harness.yaml validate
 python3 ../../scripts/harness.py --metadata marketing.harness.yaml render --dry-run
 ```

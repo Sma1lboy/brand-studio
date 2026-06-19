@@ -1,24 +1,24 @@
-# Marketing Harness Skill
+# Brand Studio Skill
 
 [简体中文](README.zh-CN.md)
 
-Marketing Harness is an installable agent skill for producing theme-locked
+Brand Studio is an installable agent skill for producing theme-locked
 marketing assets from a product repository. It validates repo visual tokens,
 prepares campaigns, exports producer-ready dry-run context, and records only
 user-accepted assets into repo-owned visual asset state.
 
 This repo ships one installable skill payload plus maintainer tooling:
 
-- `skills/marketing-harness/`: the installable skill payload.
+- `skills/brand-studio/`: the installable skill payload.
 
-The runtime used by agents is bundled under `skills/marketing-harness/scripts/`.
+The runtime used by agents is bundled under `skills/brand-studio/scripts/`.
 There is no top-level `src/` package in the skill shape.
 
 ## Recommended Sharing Model
 
 For real personal or team use, fork this repository and clone or install from
-your own fork. Treat `CodeFox-Repo/marketing-harness` as the generic upstream;
-treat `your-user/marketing-harness` or `your-org/marketing-harness` as the
+your own fork. Treat `CodeFox-Repo/brand-studio` as the generic upstream;
+treat `your-user/brand-studio` or `your-org/brand-studio` as the
 shared source of truth for your metadata, policy, producer preferences,
 templates, and install notes.
 
@@ -29,7 +29,7 @@ defaults in the fork so teammates can pull the same skill behavior.
 
 ## What The Skill Does
 
-Marketing Harness keeps style, campaign content, production, and accepted state
+Brand Studio keeps style, campaign content, production, and accepted state
 separate:
 
 ```text
@@ -54,11 +54,11 @@ generation, and scratch candidates are not visual memory.
 Open a product repo, then mention the skill in the task:
 
 ```text
-$marketing-harness bootstrap this repo for a new product visual system
-$marketing-harness validate the CodeFox example campaign
-$marketing-harness create a campaign for a launch poster, dry-run first
-$marketing-harness render this campaign with the current theme, then wait for review
-$marketing-harness record the accepted launch banner into visual asset state
+$brand-studio bootstrap this repo for a new product visual system
+$brand-studio validate the CodeFox example campaign
+$brand-studio create a campaign for a launch poster, dry-run first
+$brand-studio render this campaign with the current theme, then wait for review
+$brand-studio record the accepted launch banner into visual asset state
 ```
 
 The installed skill contains a launcher:
@@ -124,7 +124,7 @@ palettes, negative prompts, reference images, model names, or producer params.
 ## Producer Capabilities
 
 Third-party producer skills are managed as local capabilities declared in
-metadata, not dependencies bundled by Marketing Harness. `producers.image`,
+metadata, not dependencies bundled by Brand Studio. `producers.image`,
 `producers.slide`, `producers.logo`, and `producers.social` can name preferred
 local skills or commands. The agent must not auto-install or silently switch
 producers.
@@ -142,7 +142,7 @@ exact files or asset ids.
 ```bash
 uv run ruff check .
 uv run pytest
-cd skills/marketing-harness/examples/codefox
+cd skills/brand-studio/examples/codefox
 python3 ../../scripts/harness.py --metadata marketing.harness.yaml validate
 ```
 

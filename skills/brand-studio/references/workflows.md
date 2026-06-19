@@ -1,4 +1,4 @@
-# Marketing Harness Lifecycle
+# Brand Studio Lifecycle
 
 This skill is state-driven. Do not ask users to add assets through commands.
 Agents may use bundled scripts as private helpers, but the user-facing workflow

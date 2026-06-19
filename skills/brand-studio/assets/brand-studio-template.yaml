@@ -1,22 +1,22 @@
 project:
-  id: codefox
+  id: my-product
   root: .
-  marketingRoot: packages/branding/marketing
+  marketingRoot: assets/marketing
 
 organization:
-  id: codefox-org
-  name: CodeFox Org
+  id: my-org
+  name: My Org
 
 skillDistribution:
-  upstream: CodeFox-Repo/marketing-harness
-  fork: CodeFox-Repo/marketing-harness
+  upstream: CodeFox-Repo/brand-studio
+  fork: my-org/brand-studio
   scope: org
   ref: main
 
 theme:
-  path: packages/branding/marketing/theme.md
-  campaigns: packages/branding/marketing/campaigns
-  references: packages/branding/marketing/references
+  path: assets/marketing/theme.md
+  campaigns: assets/marketing/campaigns
+  references: assets/marketing/references
 
 producers:
   image:
@@ -41,23 +41,23 @@ producers:
     allowAutoInstall: false
 
 campaign:
-  name: example
-  path: packages/branding/marketing/campaigns/example.campaign.yaml
+  name: launch
+  path: assets/marketing/campaigns/launch.campaign.yaml
 
 artifacts:
-  scratch: packages/branding/.harness/out
-  approved: packages/branding/public/marketing
+  scratch: .harness/marketing/out
+  approved: public/marketing
 
 state:
-  plans: packages/branding/marketing/plans
-  assetIndex: packages/branding/marketing/asset-state.yaml
-  accepted: packages/branding/marketing/accepted.yaml
+  plans: assets/marketing/plans
+  assetIndex: assets/marketing/asset-state.yaml
+  accepted: assets/marketing/accepted.yaml
   directoryStateFile: asset-state.yaml
 
 sources:
   assetRoots:
-    - packages/branding/marketing
-    - packages/branding/public/marketing
+    - assets/marketing
+    - public/marketing
   relatedRepos: []
 
 policy:

@@ -52,7 +52,7 @@ wheels = [
 ]
 
 [[package]]
-name = "marketing-harness-skill"
+name = "brand-studio-skill"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

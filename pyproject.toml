@@ -1,5 +1,5 @@
 [project]
-name = "marketing-harness-skill"
+name = "brand-studio-skill"
 version = "0.1.0"
 description = "A thin Codex skill for brand-locked marketing image workflows."
 readme = "README.md"
@@ -15,7 +15,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["skills/marketing-harness/scripts"]
+pythonpath = ["skills/brand-studio/scripts"]
 testpaths = ["tests"]
 
 [tool.ruff]

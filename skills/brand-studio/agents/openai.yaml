@@ -1,7 +1,7 @@
 interface:
-  display_name: "Marketing Harness"
+  display_name: "Brand Studio"
   short_description: "Plan, render, review, and record org/repo theme-locked marketing asset state."
-  default_prompt: "Use $marketing-harness to run the org/repo theme-locked marketing asset lifecycle."
+  default_prompt: "Use $brand-studio to run the org/repo theme-locked marketing asset lifecycle."
 
 policy:
   allow_implicit_invocation: false

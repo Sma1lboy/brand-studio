@@ -1,6 +1,6 @@
-# CodeFox Marketing Harness Brand Brief
+# CodeFox Brand Studio Brand Brief
 
-Subject: CodeFox Marketing Harness, a developer-facing system that turns locked brand tokens into versioned campaign image artifacts.
+Subject: CodeFox Brand Studio, a developer-facing system that turns locked brand tokens into versioned campaign image artifacts.
 
 Audience: product engineers, growth teams, and founders who need repeatable launch visuals without letting every project invent its own prompt style.
 

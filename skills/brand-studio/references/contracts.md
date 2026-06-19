@@ -62,8 +62,8 @@ organization:
   id: "codefox-org"
   name: "CodeFox Org"
 skillDistribution:
-  upstream: "CodeFox-Repo/marketing-harness"
-  fork: "codefox-org/marketing-harness"
+  upstream: "CodeFox-Repo/brand-studio"
+  fork: "codefox-org/brand-studio"
   scope: "org"
   ref: "main"
 theme:
@@ -118,7 +118,7 @@ that can drop team metadata and policy.
 Third-party producer skills are local capabilities, not dependencies vendored by
 this skill. The metadata can declare producer preferences, but agents must not
 auto-download, auto-install, or silently switch producer implementations.
-Marketing Harness orchestrates planning, state, review, and dry-run context; it
+Brand Studio orchestrates planning, state, review, and dry-run context; it
 does not own the actual image, slide, logo, or social-card producer skill.
 
 - `producers.image`: optional local or external image producer skill.

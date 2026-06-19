@@ -4,7 +4,7 @@ CodeFox logo-led campaign visual system. Palette: #F58220 fox orange, #0E2B3A da
 
 Audience: developers and small teams who want repeatable launch visuals from a locked brand system.
 
-Single job: announce that CodeFox Marketing Harness turns one locked brand style into a complete set of versioned promotional images.
+Single job: announce that CodeFox Brand Studio turns one locked brand style into a complete set of versioned promotional images.
 
 Visual direction:
 

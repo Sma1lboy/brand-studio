@@ -24,17 +24,6 @@ EXCLUDE_TOP_LEVEL = {
     "tests",
     "workspace",
 }
-ALLOWED_TOP_LEVEL = {
-    ".env.example",
-    "SKILL.md",
-    "agents",
-    "assets",
-    "examples",
-    "references",
-    "scripts",
-}
-
-
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[1]
     skill_dir = repo_root / "skills" / "marketing-harness"
@@ -45,7 +34,6 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     if not (skill_dir / "SKILL.md").is_file():
         raise SystemExit(f"Missing skill payload: {skill_dir / 'SKILL.md'}")
-    validate_skill_payload(skill_dir)
 
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in sorted(skill_dir.rglob("*")):
@@ -60,23 +48,6 @@ def main() -> int:
 
     print(output)
     return 0
-
-
-def validate_skill_payload(skill_dir: Path) -> None:
-    invalid = sorted(
-        path.name
-        for path in skill_dir.iterdir()
-        if path.name not in ALLOWED_TOP_LEVEL
-        and path.name not in EXCLUDE_ANYWHERE
-        and path.name not in EXCLUDE_TOP_LEVEL
-    )
-    if invalid:
-        allowed = ", ".join(sorted(ALLOWED_TOP_LEVEL))
-        found = ", ".join(invalid)
-        raise SystemExit(
-            "Invalid skill payload top-level entries: "
-            f"{found}. Allowed entries are: {allowed}."
-        )
 
 
 def should_exclude(relative: Path, *, include_examples: bool = False) -> bool:

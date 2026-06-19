@@ -205,4 +205,6 @@ python3 scripts/package_skill.py
 
 zip 只包含 `skills/marketing-harness/` 内容。它不会打包根目录的 `tests/`、`examples/`、`outputs/` 或 `published/`。只有维护/debug 包才使用 `--include-examples`。
 
-打包脚本会强制 skill payload 形态：顶层允许 `scripts/`、`references/`、`assets/` 和 `agents/`；如果 skill payload 顶层出现 `src/` 或 `tests/`，打包会失败。
+skill payload 形态靠人工 review 维护：保持 `SKILL.md`、`scripts/`、
+`references/`、`assets/` 和 `agents/` 为主。打包脚本只负责生成 artifact 和默认
+排除维护目录。

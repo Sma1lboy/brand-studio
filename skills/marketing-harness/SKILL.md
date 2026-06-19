@@ -80,6 +80,26 @@ into the product repo.
 For exact command sequences, read `references/workflows.md`. For schema
 contracts, read `references/contracts.md`.
 
+## Version Bumps
+
+Use SemVer for `brand.lock.yaml` within its `portfolio.id` + `brand.id`
+namespace:
+
+- Patch (`1.0.4 -> 1.0.5`): small fixes that preserve the same visual direction
+  and alias contract, such as typo cleanup, safer negative prompts, reference
+  path fixes, or prompt hardening for cropping/legibility.
+- Minor (`1.0.4 -> 1.1.0`): additive or materially improved style work that
+  keeps existing aliases usable, such as adding a new style alias, adding tokens,
+  or moving an unpublished campaign to a clearly different but compatible look.
+- Major (`1.0.4 -> 2.0.0`): breaking style contract changes, such as removing or
+  renaming aliases used by campaigns, replacing an existing alias with a
+  different visual concept, or changing the product's locked visual identity.
+
+If a published or accepted brand version exists, never mutate it in place.
+Create a new `brand.lock` version. A large direction change such as "lunar
+cinematic scene" to "plain product promo" is not a patch; use at least a minor
+bump, and use a major bump if the old alias is removed or redefined.
+
 ## Style Production
 
 When a design skill, Claude, Codex, or a human produces style, freeze the result

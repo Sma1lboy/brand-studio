@@ -39,6 +39,25 @@ Token rules:
 - `brand.lock version` changes when this product's locked visual tokens or provider config changes.
 - Generating a campaign does not bump either version.
 
+Brand lock versions use SemVer inside their `portfolio.id` + `brand.id`
+namespace:
+
+- Patch: non-breaking fixes that preserve the same style intent and alias
+  contract. Examples: typo cleanup, reference path correction, stricter negative
+  prompt, or safe-area/legibility hardening.
+- Minor: compatible style expansion or material improvement. Examples: adding a
+  new alias, adding new global tokens, or moving an unpublished campaign to a
+  different compatible direction without breaking existing alias names.
+- Major: breaking style contract or identity change. Examples: removing or
+  renaming an alias, redefining an existing alias to a different visual concept,
+  replacing the core palette/typography system, or changing the default
+  provider/model in a way that invalidates prior regression baselines.
+
+Published and accepted versions are immutable. Do not edit a published
+`brand.lock` snapshot in place. A large concept change such as a cinematic lunar
+scene becoming a plain product promo must be at least a minor bump, and is a
+major bump if the existing alias is removed or redefined.
+
 ## Metadata, Elements, And Accepted Corpus
 
 New product workspaces use explicit sidecars:

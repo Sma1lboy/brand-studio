@@ -139,6 +139,10 @@ the snapshot.
 
 Use this when a design skill, Claude, or Codex is responsible for style production.
 
+Choose `<next-version>` using the SemVer policy in `references/contracts.md`.
+Do not use a patch bump for large concept changes, alias renames, or visual
+identity replacements.
+
 Design skill routing is intentionally fuzzy:
 
 - If the user writes a hint after an explicit skill mention such as `$marketing-harness`, honor it first, for example "use local frontend-design" or "prefer claude-design".

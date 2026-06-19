@@ -27,6 +27,8 @@ brand state -> production plan -> candidates -> user acceptance -> accepted stat
 The skill helps an agent:
 
 - read a small YAML/JSON metadata file that declares product paths and policy.
+- read organization, portfolio, repo, related-repo, and directory asset state
+  before planning.
 - build or update brand metadata and design-token style locks.
 - validate `brand.lock.yaml` and campaign files.
 - run dry-run renders without spending API credits.
@@ -91,8 +93,11 @@ packages/branding/
     references/
     proposals/
     plans/
+    asset-state.yaml
     accepted.yaml
   public/marketing/
+    <channel-or-format>/
+      asset-state.yaml
     <approved assets and manifests>
   .harness/out/
 ```
@@ -102,10 +107,23 @@ packages/branding/
 - `artifacts.scratch` is the local render buffer.
 - `artifacts.approved` is the reviewed asset path, asset repo, or submodule
   target.
+- `state.assetIndex` is the repo-level visual asset memory.
 - `state.accepted` is the durable accepted corpus used by future planning.
+- `state.directoryStateFile` is the per-directory memory filename, usually
+  `asset-state.yaml`.
+- `sources.relatedRepos` points at same-org or same-portfolio repos whose
+  accepted state should inform this repo's production.
 
 Raw scratch outputs are not valuable by default. Promote only human-approved
 final assets into the approved path and accepted state.
+
+Before producing banners, landscape visuals, slide/PPT backgrounds,
+logo-theme variants, X/XHS cards, or social images, the agent should run the
+read-only state preflight and use that output in the production plan:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+```
 
 ## Brand Lock Contract
 

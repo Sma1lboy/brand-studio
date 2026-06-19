@@ -25,6 +25,9 @@ def main() -> int:
         print_plan(metadata)
         return 0
 
+    if args[:1] == ["state"]:
+        return print_state(args[1:], metadata, metadata_path)
+
     if args[:1] == ["check"]:
         return check_project(args[1:], metadata, metadata_path)
 
@@ -99,6 +102,7 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
         plan["campaigns_dir"],
         plan["references_dir"],
         plan["plans_dir"],
+        plan["asset_index"].parent,
         plan["scratch_dir"],
         plan["approved_dir"],
         plan["accepted_state"].parent,
@@ -119,6 +123,7 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
             "campaigns_dir": plan["campaigns_dir"],
             "references_dir": plan["references_dir"],
             "plans_dir": plan["plans_dir"],
+            "asset_index": plan["asset_index"],
             "scratch_dir": plan["scratch_dir"],
             "approved_dir": plan["approved_dir"],
             "accepted_state": plan["accepted_state"],
@@ -164,6 +169,9 @@ def check_project(args: list[str], metadata: dict[str, Any], metadata_path: str 
             "scratch_dir": paths["scratch_dir"],
             "approved_dir": paths["approved_dir"],
             "plans_dir": paths["plans_dir"],
+            "asset_index": paths["asset_index"],
+            "asset_index_exists": paths["asset_index"].exists(),
+            "directory_state_file": paths["directory_state_file"],
             "accepted_state": paths["accepted_state"],
             "accepted_state_exists": paths["accepted_state"].exists(),
             "bundled_cli": Path(__file__).resolve().parent / "cli.py",
@@ -186,6 +194,8 @@ def print_plan(metadata: dict[str, Any]) -> None:
             "campaigns_dir": paths["campaigns_dir"],
             "references_dir": paths["references_dir"],
             "plans_dir": paths["plans_dir"],
+            "asset_index": paths["asset_index"],
+            "directory_state_file": paths["directory_state_file"],
             "scratch_dir": paths["scratch_dir"],
             "approved_dir": paths["approved_dir"],
             "accepted_state": paths["accepted_state"],
@@ -198,6 +208,28 @@ def print_plan(metadata: dict[str, Any]) -> None:
     )
 
 
+def print_state(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    target = "."
+    pretty = True
+    remaining = list(args)
+    while remaining:
+        token = remaining.pop(0)
+        if token == "--compact":
+            pretty = False
+        elif token in {"-h", "--help"}:
+            print("usage: harness.py state [--metadata FILE] [--compact] [target-dir]")
+            return 0
+        elif token.startswith("-"):
+            raise SystemExit(f"unknown state option: {token}")
+        else:
+            target = token
+
+    project_root = project_root_for(metadata, fallback=Path(target).resolve())
+    snapshot = collect_state_snapshot(metadata, project_root, metadata_path)
+    print(json.dumps(snapshot, indent=2 if pretty else None, sort_keys=True))
+    return 1 if snapshot["errors"] else 0
+
+
 def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Path]:
     marketing_root = path_at(
         metadata, project_root, DEFAULT_MARKETING_ROOT, "project", "marketingRoot"
@@ -205,6 +237,13 @@ def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Pat
     scratch_dir = path_at(metadata, project_root, DEFAULT_SCRATCH_DIR, "artifacts", "scratch")
     approved_dir = path_at(metadata, project_root, DEFAULT_APPROVED_DIR, "artifacts", "approved")
     plans_dir = path_at(metadata, project_root, "marketing/plans", "state", "plans")
+    asset_index = path_at(
+        metadata,
+        project_root,
+        "marketing/asset-state.yaml",
+        "state",
+        "assetIndex",
+    )
     accepted_state = path_at(
         metadata,
         project_root,
@@ -212,6 +251,7 @@ def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Pat
         "state",
         "accepted",
     )
+    directory_state_file = string_at(metadata, "state", "directoryStateFile") or "asset-state.yaml"
     campaigns_value = metadata_path_value(metadata, "brand", "campaigns")
     references_value = metadata_path_value(metadata, "brand", "references")
     campaigns_dir = (
@@ -229,10 +269,244 @@ def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Pat
         "scratch_dir": scratch_dir,
         "approved_dir": approved_dir,
         "plans_dir": plans_dir,
+        "asset_index": asset_index,
+        "directory_state_file": directory_state_file,
         "accepted_state": accepted_state,
         "campaigns_dir": campaigns_dir,
         "references_dir": references_dir,
     }
+
+
+def collect_state_snapshot(
+    metadata: dict[str, Any],
+    project_root: Path,
+    metadata_path: str | None,
+) -> dict[str, Any]:
+    paths = project_paths(metadata, project_root)
+    errors: list[str] = []
+    state_files = collect_state_files(metadata, project_root, paths, errors)
+    asset_roots = collect_asset_roots(metadata, project_root, paths, errors)
+    related_repos = collect_related_repos(metadata, project_root, errors)
+    required_reads = [
+        paths["asset_index"],
+        paths["accepted_state"],
+        *[entry["path"] for entry in state_files if entry["exists"]],
+    ]
+    return {
+        "schema_version": "1.0",
+        "metadata": metadata_path or "",
+        "project": {
+            "id": string_at(metadata, "project", "id") or "",
+            "root": str(project_root),
+            "marketing_root": str(paths["marketing_root"]),
+        },
+        "organization": mapping_summary(value_at(metadata, "organization")),
+        "portfolio": mapping_summary(value_at(metadata, "portfolio")),
+        "brand": {
+            "lock": metadata_path_value(metadata, "brand", "lock") or "",
+            "campaigns": metadata_path_value(metadata, "brand", "campaigns") or "",
+            "references": metadata_path_value(metadata, "brand", "references") or "",
+        },
+        "state": {
+            "plans": str(paths["plans_dir"]),
+            "asset_index": str(paths["asset_index"]),
+            "accepted": str(paths["accepted_state"]),
+            "directory_state_file": paths["directory_state_file"],
+        },
+        "asset_roots": asset_roots,
+        "state_files": state_files,
+        "related_repos": related_repos,
+        "read_before_production": unique_strings(str(path) for path in required_reads),
+        "errors": errors,
+    }
+
+
+def collect_state_files(
+    metadata: dict[str, Any],
+    project_root: Path,
+    paths: dict[str, Any],
+    errors: list[str],
+) -> list[dict[str, Any]]:
+    state_paths: list[tuple[str, Path]] = [
+        ("asset_index", paths["asset_index"]),
+        ("accepted", paths["accepted_state"]),
+    ]
+    for root in declared_asset_roots(metadata, project_root, paths):
+        if root.is_dir():
+            state_paths.extend(
+                (state_file_kind(path, paths["directory_state_file"]), path)
+                for path in root.rglob("*")
+                if should_read_state_file(path, paths["directory_state_file"], paths["scratch_dir"])
+            )
+    result: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    for kind, path in state_paths:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        result.append(read_state_file(kind, resolved, errors))
+    return sorted(result, key=lambda item: item["path"])
+
+
+def collect_asset_roots(
+    metadata: dict[str, Any],
+    project_root: Path,
+    paths: dict[str, Any],
+    errors: list[str],
+) -> list[dict[str, Any]]:
+    roots: list[dict[str, Any]] = []
+    for root in declared_asset_roots(metadata, project_root, paths):
+        try:
+            roots.append(
+                {
+                    "path": str(root),
+                    "exists": root.exists(),
+                    "image_count": count_images(root, paths["scratch_dir"]) if root.is_dir() else 0,
+                }
+            )
+        except OSError as exc:
+            errors.append(f"{root}: cannot scan asset root: {exc}")
+    return roots
+
+
+def collect_related_repos(
+    metadata: dict[str, Any],
+    project_root: Path,
+    errors: list[str],
+) -> list[dict[str, Any]]:
+    repos: list[dict[str, Any]] = []
+    for index, repo in enumerate(list_at(metadata, "sources", "relatedRepos")):
+        if not isinstance(repo, dict):
+            errors.append(f"sources.relatedRepos[{index}]: expected object")
+            continue
+        repo_root = Path(resolve_project_path(project_root, repo.get("root", ".")))
+        metadata_value = repo.get("metadata")
+        metadata_file = (
+            Path(resolve_project_path(repo_root, metadata_value)) if metadata_value else None
+        )
+        state_value = repo.get("state") or repo.get("accepted")
+        state_file = Path(resolve_project_path(repo_root, state_value)) if state_value else None
+        entry: dict[str, Any] = {
+            "id": str(repo.get("id", "")),
+            "kind": str(repo.get("kind", "related-repo")),
+            "root": str(repo_root),
+            "exists": repo_root.exists(),
+            "metadata": str(metadata_file) if metadata_file else "",
+            "metadata_exists": metadata_file.exists() if metadata_file else False,
+            "state": str(state_file) if state_file else "",
+            "state_exists": state_file.exists() if state_file else False,
+        }
+        if state_file and state_file.exists():
+            state_errors: list[str] = []
+            entry["state_summary"] = read_state_file("related_state", state_file, state_errors)[
+                "summary"
+            ]
+            errors.extend(state_errors)
+        repos.append(entry)
+    return repos
+
+
+def declared_asset_roots(
+    metadata: dict[str, Any],
+    project_root: Path,
+    paths: dict[str, Any],
+) -> list[Path]:
+    roots = [
+        paths["marketing_root"],
+        paths["references_dir"],
+        paths["approved_dir"],
+        paths["asset_index"].parent,
+        paths["accepted_state"].parent,
+    ]
+    for value in list_at(metadata, "sources", "assetRoots"):
+        roots.append(Path(resolve_project_path(project_root, value)))
+    return unique_paths(roots)
+
+
+def should_read_state_file(path: Path, directory_state_file: str, scratch_dir: Path) -> bool:
+    if not path.is_file():
+        return False
+    if any(part in {".git", "node_modules", "__pycache__"} for part in path.parts):
+        return False
+    try:
+        path.relative_to(scratch_dir.resolve())
+        return False
+    except ValueError:
+        pass
+    return path.name in {directory_state_file, "accepted.yaml"}
+
+
+def state_file_kind(path: Path, directory_state_file: str) -> str:
+    if path.name == "accepted.yaml":
+        return "accepted"
+    if path.name == directory_state_file:
+        return "directory_state"
+    return "state"
+
+
+def read_state_file(kind: str, path: Path, errors: list[str]) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "kind": kind,
+        "path": str(path),
+        "exists": path.exists(),
+        "summary": {},
+    }
+    if not path.exists():
+        return entry
+    try:
+        data = load_structured_file(path)
+    except (OSError, SystemExit, ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"{path}: cannot read state: {exc}")
+        entry["error"] = str(exc)
+        return entry
+    entry["summary"] = summarize_state_data(data)
+    return entry
+
+
+def load_structured_file(path: Path) -> Any:
+    raw = path.read_text(encoding="utf-8")
+    stripped = raw.lstrip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        return json.loads(raw)
+    return parse_yaml_document(raw)
+
+
+def summarize_state_data(data: Any) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        return {"type": type(data).__name__}
+    owner = data.get("owner") if isinstance(data.get("owner"), dict) else {}
+    accepted = data.get("accepted") if isinstance(data.get("accepted"), list) else []
+    assets = data.get("assets") if isinstance(data.get("assets"), list) else []
+    patterns = data.get("patterns") if isinstance(data.get("patterns"), list) else []
+    return {
+        "schema_version": data.get("schema_version", ""),
+        "owner_kind": owner.get("kind", ""),
+        "owner_id": owner.get("id", ""),
+        "portfolio_id": owner.get("portfolio_id", ""),
+        "revision": data.get("revision", ""),
+        "accepted_count": len(accepted),
+        "asset_count": len(assets),
+        "pattern_count": len(patterns),
+        "keys": sorted(str(key) for key in data.keys()),
+    }
+
+
+def count_images(root: Path, scratch_dir: Path) -> int:
+    count = 0
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part in {".git", "node_modules", "__pycache__"} for part in path.parts):
+            continue
+        try:
+            path.relative_to(scratch_dir.resolve())
+            continue
+        except ValueError:
+            pass
+        if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
+            count += 1
+    return count
 
 
 def copy_example(marketing_root: Path) -> None:
@@ -253,10 +527,18 @@ def load_metadata(path: str | None) -> dict[str, Any]:
     if stripped.startswith("{"):
         data = json.loads(raw)
     else:
-        data = parse_simple_yaml(raw)
+        data = parse_yaml_document(raw)
     if not isinstance(data, dict):
         raise SystemExit(f"{metadata_path}: metadata root must be an object")
     return data
+
+
+def parse_yaml_document(raw: str) -> Any:
+    try:
+        import yaml  # type: ignore[import-untyped]
+    except ImportError:
+        return parse_simple_yaml(raw)
+    return yaml.safe_load(raw) or {}
 
 
 def parse_simple_yaml(raw: str) -> dict[str, Any]:
@@ -370,6 +652,45 @@ def value_at(metadata: dict[str, Any], *parts: str) -> object | None:
             return None
         current = current[part]
     return current
+
+
+def list_at(metadata: dict[str, Any], *parts: str) -> list[Any]:
+    value = value_at(metadata, *parts)
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def mapping_summary(value: object | None) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    return {key: value[key] for key in ("id", "name", "version") if key in value}
+
+
+def unique_paths(paths: list[Path]) -> list[Path]:
+    seen: set[Path] = set()
+    result: list[Path] = []
+    for path in paths:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        result.append(resolved)
+    return result
+
+
+def unique_strings(values: Any) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value)
+        if text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result
 
 
 def extract_option(args: list[str], option: str) -> tuple[list[str], str | None]:

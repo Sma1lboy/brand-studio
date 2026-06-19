@@ -1,0 +1,16 @@
+schema_version: "1.0"
+owner:
+  kind: "directory"
+  portfolio_id: "codefox"
+  id: "codefox-references"
+revision: 1
+purpose: "Reference imagery available before campaign production."
+assets:
+  - id: "main-visual"
+    kind: "reference-image"
+    path: "main_visual.png"
+    tags: ["editorial", "product-system"]
+  - id: "logo-template"
+    kind: "reference-image"
+    path: "codefox-logo-template.png"
+    tags: ["logo", "template"]

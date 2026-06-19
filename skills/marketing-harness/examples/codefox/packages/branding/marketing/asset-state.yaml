@@ -1,0 +1,15 @@
+schema_version: "1.0"
+owner:
+  kind: "brand"
+  portfolio_id: "codefox"
+  id: "codefox"
+revision: 1
+purpose: "Repo-level marketing asset memory for future CodeFox production plans."
+assets:
+  - id: "codefox-logo-launch-web-banner"
+    kind: "web-banner"
+    path: "accepted.yaml#codefox-logo-launch-web-banner"
+    tags: ["logo-led", "wide-banner", "accepted"]
+patterns:
+  - id: "manifest-backed-launch"
+    notes: "Show generated artifacts as a tidy product system with manifest/version cues."

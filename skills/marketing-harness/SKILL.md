@@ -43,6 +43,15 @@ project:
   root: .
   marketingRoot: packages/branding/marketing
 
+organization:
+  id: my-org
+  name: My Org
+
+portfolio:
+  id: my-portfolio
+  name: My Portfolio
+  version: 1.0.0
+
 brand:
   lock: packages/branding/marketing/brand.lock.yaml
   campaigns: packages/branding/marketing/campaigns
@@ -58,7 +67,15 @@ artifacts:
 
 state:
   plans: packages/branding/marketing/plans
+  assetIndex: packages/branding/marketing/asset-state.yaml
   accepted: packages/branding/marketing/accepted.yaml
+  directoryStateFile: asset-state.yaml
+
+sources:
+  assetRoots:
+    - packages/branding/marketing
+    - packages/branding/public/marketing
+  relatedRepos: []
 
 policy:
   requireHumanApprovalBeforeRender: true
@@ -77,12 +94,18 @@ Keep these roots separate:
 - **Project root:** the user's current product repo.
 - **Marketing root:** the product-owned source location from metadata, such as
   `packages/branding/marketing`.
+- **Organization and portfolio state:** shared parent-brand context declared in
+  metadata, plus any local state files under declared asset roots.
 - **Scratch output:** the product-owned temporary render location from metadata,
   such as `packages/branding/.harness/out`.
 - **Approved assets:** the product-owned location for user-accepted generated
   files.
 - **Accepted state:** the product-owned accepted corpus, usually
   `packages/branding/marketing/accepted.yaml`.
+- **Directory state:** `state.directoryStateFile`, usually `asset-state.yaml`,
+  found under declared asset roots and read before production.
+- **Related repo state:** local sibling repo metadata/state declared under
+  `sources.relatedRepos`.
 - **Skill root:** this installed `skills/marketing-harness` folder.
 
 Do not create root-level `workspace/`, `outputs/`, `published/`, or `releases/`
@@ -147,8 +170,9 @@ does not pass `--model` and lets the image provider choose its default.
 
 Use this loop:
 
-1. Read current portfolio/product state, accepted corpus, references, and
-   related repo indexes declared by metadata.
+1. Run the read-only state preflight and read current org, portfolio, product,
+   directory, accepted corpus, reference, and related-repo state declared by
+   metadata.
 2. Write or update a production plan under `state.plans`.
 3. Validate the plan inputs and run a dry render.
 4. Ask the user to approve live generation cost.
@@ -161,6 +185,15 @@ Use this loop:
 The approved asset directory should come from metadata. It may be a public
 package directory, a separate asset git repository, or a submodule. The skill
 never edits `.gitattributes` and never runs `git add`, `commit`, or `push`.
+
+Internal preflight helper:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+```
+
+Use this output to ground the production plan. Do not treat it as an asset
+intake or promotion command.
 
 ## Verification
 

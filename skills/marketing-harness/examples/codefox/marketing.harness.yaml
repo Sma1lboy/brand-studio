@@ -1,15 +1,15 @@
 project:
-  id: my-product
+  id: codefox
   root: .
   marketingRoot: packages/branding/marketing
 
 organization:
-  id: my-org
-  name: My Org
+  id: codefox-org
+  name: CodeFox Org
 
 portfolio:
-  id: my-portfolio
-  name: My Portfolio
+  id: codefox
+  name: CodeFox
   version: 1.0.0
 
 brand:
@@ -18,8 +18,8 @@ brand:
   references: packages/branding/marketing/references
 
 campaign:
-  name: launch
-  path: packages/branding/marketing/campaigns/launch.campaign.yaml
+  name: example
+  path: packages/branding/marketing/campaigns/example.campaign.yaml
 
 artifacts:
   scratch: packages/branding/.harness/out

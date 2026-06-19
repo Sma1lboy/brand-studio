@@ -25,8 +25,18 @@ def load_launcher() -> ModuleType:
 def metadata(root: Path) -> dict[str, object]:
     return {
         "project": {
+            "id": "current-product",
             "root": str(root),
             "marketingRoot": "packages/branding/marketing",
+        },
+        "organization": {
+            "id": "codefox-org",
+            "name": "CodeFox Org",
+        },
+        "portfolio": {
+            "id": "codefox",
+            "name": "CodeFox",
+            "version": "1.0.0",
         },
         "brand": {
             "lock": "packages/branding/marketing/brand.lock.yaml",
@@ -43,7 +53,16 @@ def metadata(root: Path) -> dict[str, object]:
         },
         "state": {
             "plans": "packages/branding/marketing/plans",
+            "assetIndex": "packages/branding/marketing/asset-state.yaml",
             "accepted": "packages/branding/marketing/accepted.yaml",
+            "directoryStateFile": "asset-state.yaml",
+        },
+        "sources": {
+            "assetRoots": [
+                "packages/branding/marketing",
+                "packages/branding/public/marketing",
+            ],
+            "relatedRepos": [],
         },
     }
 
@@ -79,7 +98,9 @@ def test_metadata_project_paths_are_root_relative(tmp_path: Path) -> None:
     assert paths["campaigns_dir"] == tmp_path / "packages/branding/marketing/campaigns"
     assert paths["references_dir"] == tmp_path / "packages/branding/marketing/references"
     assert paths["plans_dir"] == tmp_path / "packages/branding/marketing/plans"
+    assert paths["asset_index"] == tmp_path / "packages/branding/marketing/asset-state.yaml"
     assert paths["accepted_state"] == tmp_path / "packages/branding/marketing/accepted.yaml"
+    assert paths["directory_state_file"] == "asset-state.yaml"
 
 
 def test_launcher_resolves_to_bundled_cli() -> None:
@@ -127,6 +148,116 @@ def test_publish_is_not_a_user_facing_command() -> None:
 
     assert completed.returncode == 0
     assert "publish" not in completed.stdout
+
+
+def test_state_preflight_reads_repo_directory_and_related_state(tmp_path: Path) -> None:
+    launcher = load_launcher()
+    project = tmp_path / "repo-a"
+    related = tmp_path / "repo-b"
+    accepted = project / "packages/branding/marketing/accepted.yaml"
+    directory_state = project / "packages/branding/public/marketing/banner/asset-state.yaml"
+    related_state = related / "packages/branding/marketing/accepted.yaml"
+    metadata_path = project / "marketing.harness.yaml"
+
+    accepted.parent.mkdir(parents=True)
+    directory_state.parent.mkdir(parents=True)
+    related_state.parent.mkdir(parents=True)
+    accepted.write_text(
+        """
+schema_version: "1.0"
+owner:
+  kind: "repo"
+  portfolio_id: "codefox"
+  id: "repo-a"
+revision: 1
+accepted:
+  - id: "launch-banner"
+    asset_id: "web-banner"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    directory_state.write_text(
+        """
+schema_version: "1.0"
+owner:
+  kind: "directory"
+  id: "banner"
+revision: 2
+assets:
+  - id: "landscape-banner"
+patterns:
+  - id: "dark-grid"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    related_state.write_text(
+        """
+schema_version: "1.0"
+owner:
+  kind: "repo"
+  portfolio_id: "codefox"
+  id: "repo-b"
+revision: 4
+accepted:
+  - id: "launch-card"
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    metadata_path.write_text(
+        """
+project:
+  id: current-product
+  root: .
+  marketingRoot: packages/branding/marketing
+organization:
+  id: codefox-org
+  name: CodeFox Org
+portfolio:
+  id: codefox
+  name: CodeFox
+  version: 1.0.0
+brand:
+  lock: packages/branding/marketing/brand.lock.yaml
+  campaigns: packages/branding/marketing/campaigns
+  references: packages/branding/marketing/references
+artifacts:
+  scratch: packages/branding/.harness/out
+  approved: packages/branding/public/marketing
+state:
+  plans: packages/branding/marketing/plans
+  assetIndex: packages/branding/marketing/asset-state.yaml
+  accepted: packages/branding/marketing/accepted.yaml
+  directoryStateFile: asset-state.yaml
+sources:
+  assetRoots:
+    - packages/branding/marketing
+    - packages/branding/public/marketing
+  relatedRepos:
+    - id: repo-b
+      kind: sibling-product
+      root: ../repo-b
+      state: packages/branding/marketing/accepted.yaml
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    loaded = launcher.load_metadata(str(metadata_path))
+    snapshot = launcher.collect_state_snapshot(loaded, project, str(metadata_path))
+
+    assert snapshot["errors"] == []
+    state_summaries = {
+        Path(entry["path"]).name: entry["summary"]
+        for entry in snapshot["state_files"]
+        if entry["exists"]
+    }
+    assert state_summaries["accepted.yaml"]["accepted_count"] == 1
+    assert state_summaries["asset-state.yaml"]["asset_count"] == 1
+    assert state_summaries["asset-state.yaml"]["pattern_count"] == 1
+    assert snapshot["organization"]["id"] == "codefox-org"
+    assert snapshot["portfolio"]["id"] == "codefox"
+    assert snapshot["related_repos"][0]["state_summary"]["accepted_count"] == 1
+    assert any("accepted.yaml" in path for path in snapshot["read_before_production"])
 
 
 def test_render_dry_run_uses_bundled_scripts(tmp_path: Path) -> None:

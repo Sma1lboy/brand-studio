@@ -1,7 +1,7 @@
 interface:
   display_name: "Marketing Harness"
-  short_description: "Plan, render, review, and record accepted brand-locked marketing assets."
-  default_prompt: "Use $marketing-harness to run the brand-locked marketing asset lifecycle."
+  short_description: "Plan, render, review, and record org/repo brand-locked marketing asset state."
+  default_prompt: "Use $marketing-harness to run the org/repo brand-locked marketing asset lifecycle."
 
 policy:
   allow_implicit_invocation: false

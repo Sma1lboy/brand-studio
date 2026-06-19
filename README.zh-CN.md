@@ -22,6 +22,7 @@ brand state -> production plan -> candidates -> user acceptance -> accepted stat
 skill 会帮助 agent 完成这些事：
 
 - 读取小型 YAML/JSON metadata，明确业务 repo 的路径和策略。
+- 在 planning 前读取组织、portfolio、当前 repo、相关 repo 和目录级资产状态。
 - 构建或更新品牌 metadata 和 design-token 风格锁。
 - 校验 `brand.lock.yaml` 和 campaign YAML。
 - 先跑不花 API 钱的 dry-run。
@@ -82,8 +83,11 @@ packages/branding/
     references/
     proposals/
     plans/
+    asset-state.yaml
     accepted.yaml
   public/marketing/
+    <channel-or-format>/
+      asset-state.yaml
     <approved assets and manifests>
   .harness/out/
 ```
@@ -91,9 +95,22 @@ packages/branding/
 - `project.marketingRoot`: 可编辑输入，包括品牌 metadata、风格锁、campaign YAML、proposal、references 和 accepted work 记录。
 - `artifacts.scratch`: 本地 render buffer。
 - `artifacts.approved`: 人工验收后的资产目录、资产仓路径或 submodule 目标。
+- `state.assetIndex`: 当前 repo 的视觉资产记忆。
 - `state.accepted`: 未来 planning 会读取的 durable accepted corpus。
+- `state.directoryStateFile`: 每个目录下的状态文件名，通常是
+  `asset-state.yaml`。
+- `sources.relatedRepos`: 同 org 或同 portfolio 的相关产品 repo，读取它们的
+  accepted state 来影响当前 repo 的生产。
 
 raw scratch outputs 默认没有长期价值；只有人工验收后的最终资产才应该进入 approved 路径和 accepted state。
+
+生产 banner、landscape visual、slide/PPT background、logo theme variant、
+X/XHS 宣传图或社媒图之前，agent 应先跑只读 state preflight，并把结果写进
+production plan：
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+```
 
 ## Brand Lock Contract
 

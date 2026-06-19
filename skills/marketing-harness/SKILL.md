@@ -70,27 +70,9 @@ theme:
   campaigns: assets/marketing/campaigns
   references: assets/marketing/references
 
-producers:
-  image:
-    kind: external-skill
-    preferred: []
-    allowAutoInstall: false
-  design:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  slide:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  logo:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  social:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
+skills:
+  image: image.default
+  slide: slide.default
 
 campaign:
   name: launch
@@ -107,6 +89,9 @@ state:
   directoryStateFile: asset-state.yaml
 
 sources:
+  # Recommended: commit org rules as a product repo submodule.
+  skillRegistries:
+    - vendor/marketing-rules/skills.yaml
   assetRoots:
     - assets/marketing
     - public/marketing
@@ -121,6 +106,11 @@ policy:
 `assets/marketing-harness-template.yaml` contains a copyable starter. If the
 repo already has its own marketing/branding layout, match it instead of moving
 files to a generic root-level directory.
+
+`assets/skill-registry-template.yaml` is the org rules starter. Keep
+`skillRegistry` in an org rules repo mounted into product repos as a submodule,
+for example `vendor/marketing-rules/skills.yaml`. Product metadata should bind
+local capability keys under `skills`, not redefine org registry ids.
 
 ## Resolve Roots
 
@@ -200,12 +190,12 @@ Proposal review flow:
 Before live generation, confirm API usage, possible cost, and the exact
 external producer skill. The harness treats third-party production skills as
 local producer capabilities, not vendored dependencies. It does not wrap GPT,
-OpenAI, or any image API. Declare producers in metadata, then use only locally
-installed or explicitly configured producers. Do not auto-download,
-auto-install, or silently switch production producers. Credentials belong to
-the selected producer's environment; never print, commit, or copy them into
-configuration files. `producer.model` is an optional hint; the selected
-producer decides whether it supports it.
+OpenAI, or any image API. Declare capability bindings in metadata, resolve them
+through `skillRegistry`, then use only locally installed or explicitly
+configured producers. Do not auto-download, auto-install, or silently switch
+production producers. Credentials belong to the selected producer's environment;
+never print, commit, or copy them into configuration files. `producer.model` is
+an optional hint; the selected producer decides whether it supports it.
 
 Use this loop:
 
@@ -213,14 +203,17 @@ Use this loop:
    directory, accepted corpus, reference, and related-repo state declared by
    metadata.
 2. Write or update a production plan under `state.plans`.
-3. Validate the plan inputs and run a dry render.
-4. Ask the user to approve live generation cost and the external producer.
-5. Pass the dry-run context to the selected producer and place candidates in
+3. Resolve campaign-required capabilities with `harness.py skills`; if a skill
+   is missing, show the declared install command and wait for explicit user
+   approval before installing.
+4. Validate the plan inputs and run a dry render.
+5. Ask the user to approve live generation cost and the resolved producer.
+6. Pass the dry-run context to the selected producer and place candidates in
    `artifacts.scratch`.
-6. Show candidate paths, manifest, run lock, and review notes.
-7. Ask the user which exact candidates are accepted.
-8. Copy accepted files into `artifacts.approved` and update `state.accepted`.
-9. Use the updated accepted state as input for the next production cycle.
+7. Show candidate paths, manifest, run lock, and review notes.
+8. Ask the user which exact candidates are accepted.
+9. Copy accepted files into `artifacts.approved` and update `state.accepted`.
+10. Use the updated accepted state as input for the next production cycle.
 
 The approved asset directory should come from metadata. It may be a public
 package directory, a separate asset git repository, or a submodule. The skill
@@ -230,6 +223,7 @@ Internal preflight helper:
 
 ```bash
 python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml skills
 ```
 
 Use this output to ground the production plan. Do not treat it as an asset

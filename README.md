@@ -124,11 +124,19 @@ palettes, negative prompts, reference images, model names, or producer params.
 
 ## Producer Capabilities
 
-Third-party producer skills are managed as local capabilities declared in
-metadata, not dependencies bundled by Marketing Harness. `producers.image`,
-`producers.slide`, `producers.logo`, and `producers.social` can name preferred
-local skills or commands. The agent must not auto-install or silently switch
-producers.
+Third-party producer skills are managed as metadata-resolved local capabilities,
+not dependencies bundled by Marketing Harness. Org rules metadata can define
+allowlisted `skillRegistry` entries with declarative install hints; product
+metadata maps local keys under `skills`; campaigns request keys under
+`requires.skills`. In production, mount the org rules repo as a product repo
+submodule such as `vendor/marketing-rules` and point `sources.skillRegistries`
+at `vendor/marketing-rules/skills.yaml`. The agent must not auto-install,
+silently switch producers, or fetch remote rules during generation. Use the
+read-only resolver before live generation:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml skills
+```
 
 ## Human Review
 

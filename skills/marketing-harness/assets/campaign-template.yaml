@@ -1,6 +1,9 @@
 name: "campaign-name"
 brief: "What this campaign should communicate"
 style: "launch-hero"
+requires:
+  skills:
+    - image
 content:
   headline: "Visible headline"
   subject: "Main subject or scene description"

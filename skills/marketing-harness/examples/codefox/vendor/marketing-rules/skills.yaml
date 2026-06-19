@@ -1,0 +1,31 @@
+skillRegistry:
+  image.default:
+    kind: codex-skill
+    skill: gpt-image
+    source:
+      type: github
+      repo: CodeFox-Repo/agent-skills
+      ref: main
+    install:
+      tool: npx-skills
+      package: skills
+      command: add
+      args:
+        - CodeFox-Repo/agent-skills
+        - --skill
+        - gpt-image
+        - --agent
+        - codex
+    policy:
+      allowAutoInstall: false
+      requiresApproval: true
+  slide.default:
+    kind: codex-skill
+    skill: presentations
+    source:
+      type: bundled
+      repo: openai-primary-runtime
+      ref: local
+    policy:
+      allowAutoInstall: false
+      requiresApproval: true

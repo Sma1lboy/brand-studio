@@ -18,27 +18,9 @@ theme:
   campaigns: assets/marketing/campaigns
   references: assets/marketing/references
 
-producers:
-  image:
-    kind: external-skill
-    preferred: []
-    allowAutoInstall: false
-  design:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  slide:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  logo:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  social:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
+skills:
+  image: image.default
+  slide: slide.default
 
 campaign:
   name: launch
@@ -55,6 +37,9 @@ state:
   directoryStateFile: asset-state.yaml
 
 sources:
+  # Recommended: commit org rules as a product repo submodule.
+  skillRegistries:
+    - vendor/marketing-rules/skills.yaml
   assetRoots:
     - assets/marketing
     - public/marketing

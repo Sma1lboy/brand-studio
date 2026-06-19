@@ -25,7 +25,7 @@ BRAND_ALLOWED = {
     "alias",
 }
 PRODUCER_ALLOWED = {"id", "gateway", "model", "params"}
-CAMPAIGN_ALLOWED = {"name", "brief", "style", "content", "deliverables"}
+CAMPAIGN_ALLOWED = {"name", "brief", "style", "content", "deliverables", "requires"}
 CONTENT_ALLOWED = {"headline", "subject"}
 DELIVERABLE_ALLOWED = {"id", "size"}
 

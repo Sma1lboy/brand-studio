@@ -123,10 +123,18 @@ production plan：
 python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
 ```
 
-第三方素材生产 skill 按本地 capability 管理，不作为 Marketing Harness 自己
-vendored 的依赖。`producers.image`、`producers.slide`、`producers.logo`、
-`producers.social` 可以声明优先使用的本地 skill 或命令。agent 不能自动安装，
-也不能静默切换 producer。
+第三方素材生产 skill 按 metadata resolve 出来的本地 capability 管理，不作为
+Marketing Harness 自己 vendored 的依赖。org rules metadata 可以维护 allowlisted
+`skillRegistry` 和 declarative install hint；业务 repo metadata 用 `skills` 把本地
+key 绑定到 registry id；campaign 用 `requires.skills` 声明本次需要哪些 capability。
+生产环境推荐把 org rules repo 作为业务 repo 的 submodule 接入，例如
+`vendor/marketing-rules`，然后让 `sources.skillRegistries` 指到
+`vendor/marketing-rules/skills.yaml`。agent 不能自动安装、静默切换 producer，也不能在
+generation 时拉取 remote rules。真实出图前先跑只读 resolver：
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml skills
+```
 
 ## Theme Contract
 

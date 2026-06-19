@@ -18,27 +18,9 @@ theme:
   campaigns: packages/branding/marketing/campaigns
   references: packages/branding/marketing/references
 
-producers:
-  image:
-    kind: external-skill
-    preferred: []
-    allowAutoInstall: false
-  design:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  slide:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  logo:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
-  social:
-    kind: local-skill
-    preferred: []
-    allowAutoInstall: false
+skills:
+  image: image.default
+  slide: slide.default
 
 campaign:
   name: example
@@ -55,6 +37,8 @@ state:
   directoryStateFile: asset-state.yaml
 
 sources:
+  skillRegistries:
+    - vendor/marketing-rules/skills.yaml
   assetRoots:
     - packages/branding/marketing
     - packages/branding/public/marketing

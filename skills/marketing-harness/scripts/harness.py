@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -16,6 +17,8 @@ VALUE_FLAGS = {
 DEFAULT_MARKETING_ROOT = "marketing"
 DEFAULT_SCRATCH_DIR = ".harness/out"
 DEFAULT_APPROVED_DIR = "marketing/approved"
+SUPPORTED_INSTALL_TOOLS = {"npx-skills"}
+SUPPORTED_SKILL_KINDS = {"codex-skill", "command"}
 
 
 def main() -> int:
@@ -28,6 +31,9 @@ def main() -> int:
 
     if args[:1] == ["state"]:
         return print_state(args[1:], metadata, metadata_path)
+
+    if args[:1] == ["skills"]:
+        return print_skills(args[1:], metadata, metadata_path)
 
     if args[:1] == ["check"]:
         return check_project(args[1:], metadata, metadata_path)
@@ -230,6 +236,39 @@ def print_state(args: list[str], metadata: dict[str, Any], metadata_path: str | 
     return 1 if snapshot["errors"] else 0
 
 
+def print_skills(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    target = "."
+    campaign_override: str | None = None
+    pretty = True
+    remaining = list(args)
+    while remaining:
+        token = remaining.pop(0)
+        if token == "--compact":
+            pretty = False
+        elif token == "--campaign":
+            if not remaining:
+                raise SystemExit("--campaign requires a value")
+            campaign_override = remaining.pop(0)
+        elif token.startswith("--campaign="):
+            campaign_override = token.split("=", 1)[1]
+        elif token in {"-h", "--help"}:
+            print(
+                "usage: harness.py skills [--metadata FILE] "
+                "[--campaign FILE] [--compact] [target-dir]"
+            )
+            return 0
+        elif token.startswith("-"):
+            raise SystemExit(f"unknown skills option: {token}")
+        else:
+            target = token
+
+    project_root = project_root_for(metadata, fallback=Path(target).resolve())
+    campaign_path = resolve_campaign_path(metadata, project_root, campaign_override)
+    snapshot = collect_skill_snapshot(metadata, project_root, metadata_path, campaign_path)
+    print(json.dumps(snapshot, indent=2 if pretty else None, sort_keys=True))
+    return 1 if snapshot["errors"] else 0
+
+
 def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Path]:
     marketing_root = path_at(
         metadata, project_root, DEFAULT_MARKETING_ROOT, "project", "marketingRoot"
@@ -287,6 +326,13 @@ def collect_state_snapshot(
     state_files = collect_state_files(metadata, project_root, paths, errors)
     asset_roots = collect_asset_roots(metadata, project_root, paths, errors)
     related_repos = collect_related_repos(metadata, project_root, errors)
+    skills = collect_skill_snapshot(
+        metadata,
+        project_root,
+        metadata_path,
+        resolve_campaign_path(metadata, project_root, None),
+    )
+    errors.extend(skills["errors"])
     required_reads = [
         paths["asset_index"],
         paths["accepted_state"],
@@ -315,6 +361,12 @@ def collect_state_snapshot(
         "asset_roots": asset_roots,
         "state_files": state_files,
         "related_repos": related_repos,
+        "skills": {
+            "registry_sources": skills["registry_sources"],
+            "available_capabilities": skills["available_capabilities"],
+            "requested_capabilities": skills["requested_capabilities"],
+            "resolved": skills["resolved"],
+        },
         "read_before_production": unique_strings(str(path) for path in required_reads),
         "errors": errors,
     }
@@ -404,6 +456,272 @@ def collect_related_repos(
             errors.extend(state_errors)
         repos.append(entry)
     return repos
+
+
+def collect_skill_snapshot(
+    metadata: dict[str, Any],
+    project_root: Path,
+    metadata_path: str | None,
+    campaign_path: Path | None,
+) -> dict[str, Any]:
+    errors: list[str] = []
+    registry, registry_sources = collect_skill_registry(metadata, project_root, errors)
+    bindings = skill_bindings(metadata, errors)
+    requested = collect_required_capabilities(campaign_path, errors)
+    capabilities = requested or sorted(bindings.keys())
+    resolved: dict[str, Any] = {}
+
+    for capability in capabilities:
+        registry_id = bindings.get(capability)
+        if not registry_id:
+            errors.append(f"skills.{capability}: missing product metadata binding")
+            continue
+        entry = registry.get(registry_id)
+        if not isinstance(entry, dict):
+            errors.append(f"skillRegistry.{registry_id}: missing registry entry")
+            continue
+        resolved[capability] = normalize_skill_entry(capability, registry_id, entry, errors)
+
+    return {
+        "schema_version": "1.0",
+        "metadata": metadata_path or "",
+        "campaign": str(campaign_path) if campaign_path else "",
+        "registry_sources": registry_sources,
+        "available_capabilities": sorted(bindings.keys()),
+        "requested_capabilities": requested,
+        "resolved": resolved,
+        "errors": errors,
+    }
+
+
+def collect_skill_registry(
+    metadata: dict[str, Any],
+    project_root: Path,
+    errors: list[str],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    registry: dict[str, Any] = {}
+    sources: list[dict[str, Any]] = []
+
+    for value in list_at(metadata, "sources", "skillRegistries"):
+        path = Path(resolve_project_path(project_root, value))
+        source_entry: dict[str, Any] = {"path": str(path), "exists": path.exists()}
+        if path.exists():
+            try:
+                data = load_structured_file(path)
+            except (OSError, SystemExit, ValueError, json.JSONDecodeError) as exc:
+                errors.append(f"{path}: cannot read skill registry: {exc}")
+                source_entry["error"] = str(exc)
+            else:
+                source_registry = registry_from_data(data, str(path), errors)
+                merge_skill_registry(registry, source_registry, str(path), errors)
+                source_entry["entry_count"] = len(source_registry)
+        sources.append(source_entry)
+
+    local_registry = mapping_at(metadata, "skillRegistry")
+    if local_registry:
+        source_label = metadata_path_label(metadata)
+        merge_skill_registry(registry, local_registry, source_label, errors)
+        sources.append(
+            {
+                "path": source_label,
+                "exists": True,
+                "entry_count": len(local_registry),
+                "scope": "metadata",
+            }
+        )
+
+    return registry, sources
+
+
+def merge_skill_registry(
+    target: dict[str, Any],
+    source: dict[str, Any],
+    source_label: str,
+    errors: list[str],
+) -> None:
+    for registry_id, entry in source.items():
+        key = str(registry_id)
+        if key in target:
+            errors.append(
+                f"skillRegistry.{key}: duplicate registry id from {source_label}; "
+                "registry ids must be unique and product metadata must not override org rules"
+            )
+            continue
+        target[key] = entry
+
+
+def registry_from_data(data: Any, context: str, errors: list[str]) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        errors.append(f"{context}: skill registry root must be a mapping")
+        return {}
+    registry = data.get("skillRegistry", data)
+    if not isinstance(registry, dict):
+        errors.append(f"{context}.skillRegistry: must be a mapping")
+        return {}
+    return registry
+
+
+def metadata_path_label(metadata: dict[str, Any]) -> str:
+    project_id = string_at(metadata, "project", "id")
+    return f"metadata:{project_id}" if project_id else "metadata"
+
+
+def skill_bindings(metadata: dict[str, Any], errors: list[str]) -> dict[str, str]:
+    raw = mapping_at(metadata, "skills")
+    bindings: dict[str, str] = {}
+    for key, value in raw.items():
+        capability = str(key)
+        if not valid_skill_key(capability):
+            errors.append(f"skills.{capability}: capability keys must be slug-like")
+            continue
+        if not isinstance(value, str) or not value:
+            errors.append(f"skills.{capability}: value must be a registry id string")
+            continue
+        bindings[capability] = value
+    return bindings
+
+
+def collect_required_capabilities(campaign_path: Path | None, errors: list[str]) -> list[str]:
+    if campaign_path is None:
+        return []
+    if not campaign_path.exists():
+        return []
+    try:
+        data = load_structured_file(campaign_path)
+    except (OSError, SystemExit, ValueError, json.JSONDecodeError) as exc:
+        errors.append(f"{campaign_path}: cannot read campaign requirements: {exc}")
+        return []
+    if not isinstance(data, dict):
+        errors.append(f"{campaign_path}: campaign root must be a mapping")
+        return []
+    requires = data.get("requires")
+    if requires is None:
+        return []
+    if not isinstance(requires, dict):
+        errors.append(f"{campaign_path}.requires: must be a mapping")
+        return []
+    values = requires.get("skills", [])
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        errors.append(f"{campaign_path}.requires.skills: must be a list")
+        return []
+    result: list[str] = []
+    for index, value in enumerate(values):
+        if not isinstance(value, str) or not value:
+            errors.append(f"{campaign_path}.requires.skills[{index}]: must be a string")
+            continue
+        if not valid_skill_key(value):
+            errors.append(f"{campaign_path}.requires.skills[{index}]: must be slug-like")
+            continue
+        result.append(value)
+    return unique_strings(result)
+
+
+def normalize_skill_entry(
+    capability: str,
+    registry_id: str,
+    entry: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    kind = str(entry.get("kind") or "")
+    if kind not in SUPPORTED_SKILL_KINDS:
+        errors.append(
+            f"skillRegistry.{registry_id}.kind: unsupported kind {kind!r}; "
+            f"expected one of {sorted(SUPPORTED_SKILL_KINDS)}"
+        )
+
+    skill = string_field(entry, "skill")
+    if kind == "codex-skill" and not skill:
+        errors.append(f"skillRegistry.{registry_id}.skill: required for codex-skill")
+
+    install = normalize_install_spec(registry_id, mapping_field(entry, "install"), errors)
+    policy_raw = mapping_field(entry, "policy")
+    source = mapping_field(entry, "source")
+    allow_auto_install = bool_from_mapping(policy_raw, "allowAutoInstall", False)
+    if "allowAutoInstall" in entry:
+        allow_auto_install = truthy(str(entry.get("allowAutoInstall")))
+    requires_approval = bool_from_mapping(policy_raw, "requiresApproval", True)
+
+    normalized: dict[str, Any] = {
+        "capability": capability,
+        "registry_id": registry_id,
+        "kind": kind,
+        "skill": skill or "",
+        "source": source,
+        "install": install,
+        "policy": {
+            "allowAutoInstall": allow_auto_install,
+            "requiresApproval": requires_approval,
+        },
+    }
+    if skill:
+        normalized["installed"] = (
+            None
+            if source.get("type") == "bundled" or ":" in skill
+            else local_codex_skill_installed(skill)
+        )
+    return normalized
+
+
+def normalize_install_spec(
+    registry_id: str,
+    install: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    if not install:
+        return {}
+    tool = string_field(install, "tool")
+    if tool not in SUPPORTED_INSTALL_TOOLS:
+        errors.append(
+            f"skillRegistry.{registry_id}.install.tool: unsupported tool {tool!r}; "
+            "only npx-skills is allowed"
+        )
+        return {"tool": tool or ""}
+
+    package = string_field(install, "package") or "skills"
+    command = string_field(install, "command") or "add"
+    args = install.get("args", [])
+    if not isinstance(args, list) or not all(isinstance(item, str) for item in args):
+        errors.append(f"skillRegistry.{registry_id}.install.args: must be a list of strings")
+        args = []
+    command_parts = ["npx", package, command, *args]
+    return {
+        "tool": tool,
+        "package": package,
+        "command": command,
+        "args": args,
+        "command_line": " ".join(shell_quote(part) for part in command_parts),
+    }
+
+
+def local_codex_skill_installed(skill: str) -> bool:
+    if "/" in skill or skill in {".", ".."}:
+        return False
+    candidates: list[Path] = []
+    codex_home = os.environ.get("CODEX_HOME")
+    if codex_home:
+        candidates.append(Path(codex_home).expanduser() / "skills" / skill / "SKILL.md")
+    candidates.append(Path.home() / ".codex" / "skills" / skill / "SKILL.md")
+    return any(path.exists() for path in unique_paths(candidates))
+
+
+def valid_skill_key(value: str) -> bool:
+    return bool(value) and all(
+        part and part.replace("-", "").replace("_", "").isalnum()
+        for part in value.split(".")
+    )
+
+
+def resolve_campaign_path(
+    metadata: dict[str, Any],
+    project_root: Path,
+    override: str | None,
+) -> Path | None:
+    value = override or metadata_path_value(metadata, "campaign", "path")
+    if not value:
+        return None
+    return Path(resolve_project_path(project_root, value))
 
 
 def declared_asset_roots(
@@ -690,6 +1008,30 @@ def list_at(metadata: dict[str, Any], *parts: str) -> list[Any]:
     if isinstance(value, list):
         return value
     return [value]
+
+
+def mapping_at(metadata: dict[str, Any], *parts: str) -> dict[str, Any]:
+    value = value_at(metadata, *parts)
+    return value if isinstance(value, dict) else {}
+
+
+def mapping_field(mapping: dict[str, Any], key: str) -> dict[str, Any]:
+    value = mapping.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def string_field(mapping: dict[str, Any], key: str) -> str | None:
+    value = mapping.get(key)
+    return str(value) if value not in (None, "") else None
+
+
+def bool_from_mapping(mapping: dict[str, Any], key: str, default: bool) -> bool:
+    value = mapping.get(key)
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return truthy(str(value))
 
 
 def mapping_summary(value: object | None) -> dict[str, object]:

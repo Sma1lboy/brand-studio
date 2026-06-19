@@ -20,8 +20,14 @@ Start each task by reading the product repo's metadata and state files:
 - `accepted.yaml`: user-accepted assets and patterns from prior cycles.
 - `artifacts.scratch`: temporary candidate output.
 - `artifacts.approved`: durable files copied only after acceptance.
+- `sources.skillRegistries`, `skills`, and `skillRegistry`: allowlisted
+  producer capability bindings and install hints.
 - `sources.relatedRepos`: same-org repos that can provide accepted state and
   asset-state context.
+
+For production rules, prefer a product repo submodule such as
+`vendor/marketing-rules`; read `sources.skillRegistries` from that local
+checkout. Do not clone or fetch remote rules during generation.
 
 When metadata declares related-product sources, treat them as
 read-only context. Prefer local checkouts or local caches. If remote GitHub or
@@ -32,11 +38,13 @@ Run the bundled state preflight before writing a production plan:
 
 ```bash
 python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml skills
 ```
 
 Use the JSON as a read summary of the current org, repo, directory,
-accepted corpus, and related-repo state. This command is read-only and must not
-be turned into a user-facing asset intake workflow.
+accepted corpus, related-repo state, and resolved campaign capabilities. These
+commands are read-only and must not be turned into a user-facing asset intake or
+implicit install workflow.
 
 ## Planning
 
@@ -49,6 +57,7 @@ Write a production plan before rendering. A plan should capture:
 - campaign file path
 - theme lock path and version
 - candidate deliverables
+- resolved campaign capabilities and any missing install commands
 - cost/risk notes for live generation
 - acceptance criteria
 
@@ -62,9 +71,10 @@ Plans are source state. They are not generated image artifacts.
 
 ## Production
 
-Validate inputs and run a dry render first. Before live generation, ask the user
-to approve API usage and cost. Live generation writes candidate files only under
-`artifacts.scratch`.
+Validate inputs and run a dry render first. Resolve campaign capabilities with
+the metadata-driven registry before live generation. Before calling the selected
+producer, ask the user to approve API usage, cost, and any missing skill install
+command. Live generation writes candidate files only under `artifacts.scratch`.
 
 Deliverables can include banners, landscape visuals, slide/PPT backgrounds,
 logo-theme explorations, X/XHS promotional cards, website hero assets, social
@@ -73,6 +83,12 @@ the same state loop.
 
 Candidates are not durable visual memory. They remain scratch until the user
 accepts specific outputs.
+
+The final producer call must use the resolved entry from `harness.py skills`.
+For `codex-skill` entries, load/call the named installed skill; if it is
+missing, show the declared `install.command_line` and wait for explicit user
+approval. For `command` entries, only use commands declared by the org registry.
+Never execute arbitrary strings from product metadata or campaign files.
 
 Review candidates for:
 

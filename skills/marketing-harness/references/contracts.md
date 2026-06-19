@@ -70,21 +70,17 @@ theme:
   path: "assets/marketing/theme.md"
   campaigns: "assets/marketing/campaigns"
   references: "assets/marketing/references"
-producers:
-  image:
-    kind: "external-skill"
-    preferred: []
-    allowAutoInstall: false
-  design:
-    kind: "local-skill"
-    preferred: []
-    allowAutoInstall: false
+skills:
+  image: "image.default"
+  slide: "slide.default"
 state:
   plans: "assets/marketing/plans"
   assetIndex: "assets/marketing/asset-state.yaml"
   accepted: "assets/marketing/accepted.yaml"
   directoryStateFile: "asset-state.yaml"
 sources:
+  skillRegistries:
+    - "vendor/marketing-rules/skills.yaml"
   assetRoots:
     - "assets/marketing"
     - "public/marketing"
@@ -94,6 +90,37 @@ sources:
       root: "../sibling-product"
       metadata: "assets/marketing.harness.yaml"
       state: "assets/marketing/accepted.yaml"
+```
+
+`sources.skillRegistries` has no implicit default path. For production, mount
+the org rules repo into the product repo as a submodule and point metadata at
+that local file, for example `vendor/marketing-rules/skills.yaml`. The runtime
+must not clone or fetch remote rules during generation.
+
+The org rules registry file should own the shared producer allowlist:
+
+```yaml
+skillRegistry:
+  image.default:
+    kind: "codex-skill"
+    skill: "gpt-image"
+    source:
+      type: "github"
+      repo: "codefox-org/agent-skills"
+      ref: "v0.3.2"
+    install:
+      tool: "npx-skills"
+      package: "skills"
+      command: "add"
+      args:
+        - "codefox-org/agent-skills"
+        - "--skill"
+        - "gpt-image"
+        - "--agent"
+        - "codex"
+    policy:
+      allowAutoInstall: false
+      requiresApproval: true
 ```
 
 Use local related repo paths when available. Remote GitHub/GitLab state should
@@ -115,20 +142,35 @@ that can drop team metadata and policy.
 
 ## Producer Capabilities
 
-Third-party producer skills are local capabilities, not dependencies vendored by
-this skill. The metadata can declare producer preferences, but agents must not
-auto-download, auto-install, or silently switch producer implementations.
-Marketing Harness orchestrates planning, state, review, and dry-run context; it
-does not own the actual image, slide, logo, or social-card producer skill.
+Third-party producer skills are local capabilities resolved from metadata, not
+dependencies vendored by this skill. Product metadata maps local capability keys
+to org registry ids under `skills`; org rules metadata or product metadata
+defines allowlisted entries under `skillRegistry`. Campaigns declare what they
+need under `requires.skills`, and agents resolve only those keys before live
+generation.
 
-- `producers.image`: optional local or external image producer skill.
-- `producers.slide`: optional local presentation/PPT producer.
-- `producers.logo`: optional local logo or vector producer.
-- `producers.social`: optional local social-card producer.
-- `producers.design`: optional local visual design skill for theme proposals.
-- `allowAutoInstall: false`: default policy; ask the user before any install.
+- `sources.skillRegistries`: optional org rules metadata files that provide
+  shared `skillRegistry` entries.
+- `skills.<capability>`: product-local capability key mapped to a registry id,
+  such as `image: image.default`.
+- `skillRegistry.<id>.kind`: currently `codex-skill` or `command`.
+- `skillRegistry.<id>.install.tool`: currently only `npx-skills`.
+- Registry ids must be unique across all sources. Product metadata must not
+  override an org registry id with a different entry.
+- `policy.allowAutoInstall: false`: default policy; ask the user before any
+  install.
 - Credentials stay in environment variables and are never copied to YAML,
   manifests, run locks, or state files.
+
+The `install` block is declarative. It exists so preflight can detect missing
+skills and show the same team-approved command, for example:
+
+```bash
+npx skills add codefox-org/agent-skills --skill gpt-image --agent codex
+```
+
+Agents must not execute arbitrary install commands from metadata. Unsupported
+install tools must fail closed.
 
 ## Campaign
 
@@ -138,6 +180,9 @@ Campaigns describe content only:
 name: "feature-x-launch"
 brief: "What this campaign says"
 style: "launch-hero"
+requires:
+  skills:
+    - "image"
 content:
   headline: "Visible copy"
   subject: "Scene or subject"

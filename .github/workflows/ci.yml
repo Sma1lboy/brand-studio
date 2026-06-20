@@ -42,26 +42,27 @@ jobs:
         run: uv run pytest
 
       - name: Validate example campaign
+        working-directory: skills/brand-studio/examples/codefox
         run: >
-          uv run harness validate
-          skills/brand-studio/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
-          --brand skills/brand-studio/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+          uv run python ../../scripts/harness.py
+          --metadata marketing.harness.yaml
+          validate
 
       - name: Render example campaign without API calls
+        working-directory: skills/brand-studio/examples/codefox
         run: >
-          uv run harness render
-          skills/brand-studio/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml
-          --brand skills/brand-studio/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
-          --dry-run
+          uv run python ../../scripts/harness.py
+          --metadata marketing.harness.yaml
+          render --dry-run
 
       - name: Validate launcher smoke
         run: |
-          python3 skills/brand-studio/scripts/harness.py --resolve
-          python3 skills/brand-studio/scripts/harness.py validate \
-            skills/brand-studio/examples/codefox/workspace/products/codefox/codefox/campaigns/example.campaign.yaml \
-            --brand skills/brand-studio/examples/codefox/workspace/products/codefox/codefox/brand.lock.yaml
+          uv run python skills/brand-studio/scripts/harness.py --resolve
+          uv run python skills/brand-studio/scripts/harness.py validate \
+            skills/brand-studio/examples/codefox/packages/branding/marketing/campaigns/example.campaign.yaml \
+            --brand skills/brand-studio/examples/codefox/packages/branding/marketing/theme.md
 
       - name: Check dry-run output contract
         run: |
-          test -f outputs/feature-x-launch/manifest.json
-          test -f outputs/feature-x-launch/run.lock.json
+          test -f skills/brand-studio/examples/codefox/packages/branding/.harness/out/feature-x-launch/manifest.json
+          test -f skills/brand-studio/examples/codefox/packages/branding/.harness/out/feature-x-launch/run.lock.json

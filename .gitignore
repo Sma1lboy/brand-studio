@@ -4,6 +4,7 @@
 *.egg-info/
 /workspace/
 /outputs/
+**/.harness/out/
 /published/
 /releases/
 __pycache__/

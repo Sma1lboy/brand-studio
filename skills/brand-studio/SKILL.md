@@ -230,8 +230,8 @@ After code or workflow changes:
 uv run ruff check .
 uv run pytest
 cd skills/brand-studio/examples/codefox
-python3 ../../scripts/harness.py --metadata marketing.harness.yaml validate
-python3 ../../scripts/harness.py --metadata marketing.harness.yaml render --dry-run
+uv run python ../../scripts/harness.py --metadata marketing.harness.yaml validate
+uv run python ../../scripts/harness.py --metadata marketing.harness.yaml render --dry-run
 ```
 
 Check that no API key, authorization header, machine-specific path, or raw image

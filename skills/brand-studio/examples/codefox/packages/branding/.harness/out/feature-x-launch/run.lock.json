@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-06-19T19:25:03.627408+00:00",
+  "generated_at": "2026-06-19T18:42:20.685490+00:00",
   "dry_run": true,
   "repo": {
     "id": "codefox",
     "name": "CodeFox",
     "version": "1.1.0"
   },
-  "theme_path": "/Users/jacksonc/i/kobe/.agents/skills/brand-studio/skills/brand-studio/examples/codefox/packages/branding/marketing/theme.md",
-  "campaign_path": "/Users/jacksonc/i/kobe/.agents/skills/brand-studio/skills/brand-studio/examples/codefox/packages/branding/marketing/campaigns/example.campaign.yaml",
+  "theme_path": "/Users/jacksonc/i/kobe/.agents/skills/marketing-harness/skills/brand-studio/examples/codefox/packages/branding/marketing/theme.md",
+  "campaign_path": "/Users/jacksonc/i/kobe/.agents/skills/marketing-harness/skills/brand-studio/examples/codefox/packages/branding/marketing/campaigns/example.campaign.yaml",
   "theme": {
     "repo": {
       "id": "codefox",
@@ -150,7 +150,7 @@
   },
   "sidecars": {
     "brand_meta": {
-      "path": "/Users/jacksonc/i/kobe/.agents/skills/brand-studio/skills/brand-studio/examples/codefox/packages/branding/marketing/brand.meta.yaml",
+      "path": "/Users/jacksonc/i/kobe/.agents/skills/marketing-harness/skills/brand-studio/examples/codefox/packages/branding/marketing/brand.meta.yaml",
       "checksum_sha256": "c09cb1edeb64c88f56321005ff0146b9db6e08c4e0c0a5afe9867f9737ef8e97",
       "content": {
         "schema_version": "1.0",
@@ -192,7 +192,7 @@
       }
     },
     "brand_elements": {
-      "path": "/Users/jacksonc/i/kobe/.agents/skills/brand-studio/skills/brand-studio/examples/codefox/packages/branding/marketing/elements.yaml",
+      "path": "/Users/jacksonc/i/kobe/.agents/skills/marketing-harness/skills/brand-studio/examples/codefox/packages/branding/marketing/elements.yaml",
       "checksum_sha256": "69a5bb18033e4bf1db9688a170d6ea3b96173090bbda34dffb98661a71bc44eb",
       "content": {
         "schema_version": "1.0",
@@ -230,7 +230,7 @@
       }
     },
     "brand_accepted": {
-      "path": "/Users/jacksonc/i/kobe/.agents/skills/brand-studio/skills/brand-studio/examples/codefox/packages/branding/marketing/accepted.yaml",
+      "path": "/Users/jacksonc/i/kobe/.agents/skills/marketing-harness/skills/brand-studio/examples/codefox/packages/branding/marketing/accepted.yaml",
       "checksum_sha256": "769b71f4346dc324a23b47de857cfb60753c16e9f3c5872a5ecdfcf954e6d5c9",
       "content": {
         "schema_version": "1.0",

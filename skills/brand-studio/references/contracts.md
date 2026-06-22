@@ -110,17 +110,17 @@ that can drop team metadata and policy.
 ## Producer Capabilities
 
 Third-party producer skills are local capabilities, not dependencies vendored by
-this skill. The metadata can declare producer preferences, but agents must not
-auto-download, auto-install, or silently switch producer implementations.
-Brand Studio orchestrates planning, state, review, and dry-run context; it
-does not own the actual image, slide, logo, or social-card producer skill.
+this skill. The metadata can bind producer capabilities under `skills`, but
+agents must not auto-download, auto-install, or silently switch producer
+implementations. Brand Studio orchestrates planning, state, review, and dry-run
+context; it does not own the actual image, slide, logo, or social-card producer
+skill.
 
-- `producers.image`: optional local or external image producer skill.
-- `producers.slide`: optional local presentation/PPT producer.
-- `producers.logo`: optional local logo or vector producer.
-- `producers.social`: optional local social-card producer.
-- `producers.design`: optional local visual design skill for theme proposals.
-- `allowAutoInstall: false`: default policy; ask the user before any install.
+- `skills.image`: optional local or external image producer skill.
+- `skills.design`: optional local visual design skill for theme proposals.
+- `skills.slide`: optional local presentation/PPT producer.
+- `skills.logo`: optional local logo or vector producer.
+- `skills.social`: optional local social-card producer.
 - Credentials stay in environment variables and are never copied to YAML,
   manifests, run locks, or state files.
 

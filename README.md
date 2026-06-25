@@ -111,6 +111,32 @@ use that output in the production plan:
 python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
 ```
 
+Release-version marketing starts with a copy asset. The launcher reads the
+latest release entry from standard `CHANGELOG.md` locations, summarizes it into
+`copy.yaml`, then turns that copy asset into a normal campaign and producer
+context. Release producer prompts make the release notes page the main subject:
+header, metadata chips, version heading, and changelog rows. They should not
+treat the changelog as a small side panel on a generic product hero. The launcher
+checks the repo root and package directories.
+
+Generate only the text asset when you want to review or revise the wording:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+  release-copy --write
+```
+
+Run the full release prep flow when the copy, campaign, dry-run context, and
+external-producer handoff should be created together. If `copy.yaml` already
+exists, the renderer uses that revised copy asset instead of regenerating it
+from the changelog. The resulting `producer-context.json` is the handoff to the
+metadata-selected image producer skill:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+  release-render
+```
+
 ## Theme Contract
 
 `theme.md` is the single source of truth for a repo's visual direction. YAML

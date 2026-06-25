@@ -222,6 +222,35 @@ python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.ya
 Use this output to ground the production plan. Do not treat it as an asset
 intake or promotion command.
 
+Release-version helpers:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+  release-copy --write
+```
+
+Use `release-copy` when the task is to review or revise release wording before
+image generation. It reads the latest release entry from standard
+`CHANGELOG.md` locations and writes a structured `copy.yaml` under the scratch
+directory. Treat that file as the text-asset handoff into campaign and image
+production.
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+  release-render
+```
+
+Use `release-render` when the task is to produce release-version marketing after
+a version step. Release producer prompts must make the release notes page the
+main subject: header, metadata chips, version heading, and changelog rows. Do
+not frame changelog content as a small side panel on a generic product hero. If
+`copy.yaml` already exists, it uses that revised text asset; otherwise it writes
+the same `copy.yaml` first. It then writes a normal campaign file under the
+metadata-declared campaigns directory, runs the existing dry-run render flow, and
+exports `producer-context.json` for the metadata-selected image producer skill.
+Use `release-campaign --write` only when you need to inspect or edit the
+generated campaign before producer handoff.
+
 ## Verification
 
 After code or workflow changes:

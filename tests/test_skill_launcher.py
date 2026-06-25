@@ -59,6 +59,9 @@ def metadata(root: Path) -> dict[str, object]:
             ],
             "relatedRepos": [],
         },
+        "skills": {
+            "image": "gpt-image",
+        },
     }
 
 
@@ -327,3 +330,163 @@ deliverables:
     output_dir = project / "packages/branding/.harness/out/launch"
     assert (output_dir / "web-banner.svg").is_file()
     assert (output_dir / "manifest.json").is_file()
+
+
+def test_release_render_reads_monorepo_package_changelog_and_renders(tmp_path: Path) -> None:
+    project = tmp_path
+    theme = project / "packages/branding/marketing/theme.md"
+    changelog = project / "packages/kobe/CHANGELOG.md"
+    metadata_path = project / "marketing.harness.json"
+    theme.parent.mkdir(parents=True)
+    changelog.parent.mkdir(parents=True)
+    theme.write_text(
+        """
+---
+repo:
+  id: test-repo
+  name: Test Repo
+version: 1.0.0
+producer:
+  params:
+    seed_strategy: fixed
+    seed: 7
+    output_format: png
+global:
+  style-fragment:
+    base:
+      $value: clean release editorial product board
+      $type: text
+  color:
+    primary:
+      $value: "#112233"
+      $type: color
+alias:
+  style:
+    launch-hero:
+      $value:
+        prompt: "{global.style-fragment.base}"
+        palette:
+          - "{global.color.primary}"
+        negative: ""
+        references: []
+      $type: composite
+---
+
+# Test Repo Theme
+""".lstrip(),
+        encoding="utf-8",
+    )
+    (project / "package.json").write_text(
+        json.dumps({"name": "test-repo", "private": True, "workspaces": ["packages/*"]}),
+        encoding="utf-8",
+    )
+    (changelog.parent / "package.json").write_text(
+        json.dumps({"name": "kobe", "version": "0.7.33"}),
+        encoding="utf-8",
+    )
+    changelog.write_text(
+        """
+# Changelog
+
+## 0.7.33
+
+### Patch Changes
+
+- dda80e9: Creating a task with `n` now drops you straight into the new task's engine pane.
+- 9653cd7: TUI task sessions now expose tmux-native layout controls.
+
+## 0.7.32
+
+- Older release note that should not be used.
+""".lstrip(),
+        encoding="utf-8",
+    )
+    metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
+
+    generated_campaign = (
+        project / "packages/branding/marketing/campaigns/release-v0-7-33.campaign.yaml"
+    )
+    copy_path = project / "packages/branding/.harness/out/release-v0-7-33/copy.yaml"
+    copy = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "release-copy",
+            "--write",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert copy.returncode == 0, copy.stderr
+    assert "release_source=changelog" in copy.stdout
+    assert "changelog_count=1" in copy.stdout
+    assert "copy_status=created" in copy.stdout
+    copy_text = copy_path.read_text(encoding="utf-8")
+    assert 'kind: "release_copy"' in copy_text
+    assert 'product: "kobe"' in copy_text
+    assert 'version: "0.7.33"' in copy_text
+    assert 'release_theme: "Faster task starts, deeper workspace control"' in copy_text
+    assert 'title: "Jump straight into the engine"' in copy_text
+    assert 'title: "Control layouts without losing work"' in copy_text
+    copy_path.write_text(
+        copy_text.replace(
+            'headline: "Faster task starts, deeper workspace control"',
+            'headline: "Manual release headline"',
+        ).replace(
+            'subheadline: "kobe 0.7.33 sharpens faster task starts, deeper workspace control."',
+            'subheadline: "Manual revised subheadline."',
+        ),
+        encoding="utf-8",
+    )
+
+    release = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "release-render",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert release.returncode == 0, release.stderr
+    assert "release_source=copy" in release.stdout
+    assert "changelog_count=1" in release.stdout
+    assert "copy_status=existing" in release.stdout
+    assert "campaign_status=created" in release.stdout
+    assert "producer_skill=gpt-image" in release.stdout
+    assert "producer_context=" in release.stdout
+    campaign_text = generated_campaign.read_text(encoding="utf-8")
+    assert 'name: "release-v0-7-33"' in campaign_text
+    assert 'headline: "Manual release headline"' in campaign_text
+    assert "Manual revised subheadline." in campaign_text
+    assert "Creating a task with n now drops you straight" in campaign_text
+    assert "TUI task sessions now expose tmux-native layout controls." in campaign_text
+
+    output_dir = project / "packages/branding/.harness/out/release-v0-7-33"
+    assert (output_dir / "release-card.svg").is_file()
+    assert (output_dir / "manifest.json").is_file()
+    producer_context = json.loads(
+        (output_dir / "producer-context.json").read_text(encoding="utf-8")
+    )
+    assert producer_context["kind"] == "producer_context"
+    assert producer_context["capability"] == "image"
+    assert producer_context["producer_skill"] == "gpt-image"
+    assert producer_context["copy"] == str(copy_path)
+    assert producer_context["campaign"] == str(generated_campaign)
+    assert producer_context["assets"][0]["id"] == "release-card"
+    assert producer_context["assets"][0]["size"] == [1200, 630]
+    release_prompt = producer_context["assets"][0]["prompt"]
+    assert "Manual release headline" in release_prompt
+    assert "tmux-native layout controls" in release_prompt
+    assert "release notes page" in release_prompt
+    assert "chronological release list" in release_prompt
+    assert "The release notes are the main subject" in release_prompt
+    assert "Do not make the changelog a small side panel" in release_prompt

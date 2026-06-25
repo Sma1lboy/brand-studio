@@ -122,6 +122,29 @@ production plan：
 python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
 ```
 
+发版本营销图先产文字资产。launcher 会优先从标准 `CHANGELOG.md` 位置读取最新
+release 条目，总结成 `copy.yaml`，再把这份 copy asset 转成普通 campaign 和
+producer context。release producer prompt 默认把 release notes 页面作为主体：
+页头、metadata chips、版本标题和 changelog 条目行，而不是把 changelog 塞成普通
+产品 hero 旁边的小面板。它会检查 repo 根目录和 package 目录。
+
+只想先审或 revise 文案时，先跑：
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+  release-copy --write
+```
+
+要一次生成 copy、campaign、dry-run context 和外部 producer handoff 时，跑下面
+这个；如果 `copy.yaml` 已经存在，它会消费这份 revised copy asset，不会重新用
+changelog 覆盖它。生成的 `producer-context.json` 是交给 metadata 里选定 image
+producer skill 的输入：
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+  release-render
+```
+
 第三方素材生产 skill 按本地 capability 管理，不作为 Brand Studio 自己
 vendored 的依赖。`skills` 映射把每个能力 key（`image`、`design`、`slide`、
 `logo`、`social`）直接绑定到本地已安装的 producer skill 名。agent 不能自动安装，

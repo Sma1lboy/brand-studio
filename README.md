@@ -51,15 +51,27 @@ generation, and scratch candidates are not visual memory.
 
 ## Use
 
-Open a product repo, then mention the skill in the task:
+Open a product repo, then mention the skill in the task. For a new visual
+system, the preferred start is to provide brand images, screenshots, or an image
+directory and let the agent create the first Brand Studio files:
 
 ```text
+$brand-studio init this repo from the attached brand images
+$brand-studio init from ./brand-input
 $brand-studio bootstrap this repo for a new product visual system
 $brand-studio validate the CodeFox example campaign
 $brand-studio create a campaign for a launch poster, dry-run first
 $brand-studio render this campaign with the current theme, then wait for review
 $brand-studio record the accepted launch banner into visual asset state
 ```
+
+During image-first init, the agent uses its own image-reading capability to
+derive the initial palette, typography direction, visual language, avoid list,
+and style aliases. It writes `marketing.harness.yaml`,
+`assets/marketing/brief.md`, `assets/marketing/theme.md`, a preview campaign,
+and initial state files, then runs the existing launcher for validation and
+dry-run rendering. The harness itself does not analyze images or call vision
+APIs.
 
 The installed skill contains a launcher:
 

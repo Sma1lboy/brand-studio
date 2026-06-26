@@ -41,10 +41,54 @@ skill install. Do not silently switch to upstream. Product-specific `theme.md`,
 campaigns, accepted state, and public assets remain in the product repo or its
 asset repo; cross-person defaults belong in the fork.
 
-## Metadata First
+## Image-First Init, Metadata Underneath
 
-This skill is for AI agents. Do not rely on hard-coded product paths. Start by
-finding or creating a small metadata file in the product repo, then pass it to
+For a new product repo, prefer image-first initialization when the user supplies
+brand images, screenshots, existing marketing assets, or an image directory.
+Use the agent's native image-reading capability to infer the first brand
+direction, then write the Brand Studio files directly. Do not ask the user to
+fill out YAML or a brand brief before producing the first usable draft.
+
+Accept prompts like:
+
+```text
+$brand-studio init this repo from the attached brand images
+$brand-studio init from ./brand-input
+```
+
+For image-first init:
+
+1. Locate the skill root from the installed skill or repo submodule.
+2. Find or create `marketing.harness.yaml` using metadata paths. If the file is
+   missing, infer `project.id` from the repo directory name, use `root: .`, use
+   `assets/marketing` for `project.marketingRoot`, use
+   `.harness/marketing/out` for scratch output, and use `public/marketing` for
+   approved assets. Omit `organization` unless the user supplied it or the repo
+   already makes it clear.
+3. Run bootstrap in dry-run mode first. Only create directories after the paths
+   match the current repo shape.
+4. Read the supplied images directly. Extract a compact brand direction:
+   palette, typography direction, visual language, materials, lighting, mood,
+   composition rules, avoid list, and initial style aliases such as
+   `launch-hero` and `social-default`.
+5. Write `brief.md` as the human-readable rationale and `theme.md` as the
+   machine-readable style lock with valid design-token frontmatter.
+6. Write `campaigns/init-preview.campaign.yaml` as a representative preview.
+7. Create empty `asset-state.yaml` and `accepted.yaml` if they do not exist.
+8. Run validation and a dry render with the existing launcher.
+9. Show the generated file paths and dry-run outputs. The user can edit
+   `brief.md` or `theme.md`, or ask for a revision.
+
+Do not add image understanding to `harness.py`. Codex, Claude, or the active
+agent reads images; the harness remains deterministic and only handles paths,
+validation, bootstrap, and dry-run rendering.
+
+If `theme.md` already exists, do not silently replace it. Revise it in place
+only when the user clearly asks to reinitialize; otherwise write a proposal
+under the metadata-declared marketing root and ask before promotion.
+
+This skill is still metadata-first internally: do not rely on hard-coded product
+paths. Find or create a small metadata file in the product repo, then pass it to
 the adapter scripts.
 
 Template:

@@ -64,15 +64,25 @@ ln -s "$PWD/skills/brand-studio" ~/.codex/skills/brand-studio
 
 ## 使用
 
-进入一个业务 repo，然后在任务里点名这个 skill：
+进入一个业务 repo，然后在任务里点名这个 skill。初始化新视觉系统时，首选方式
+是提供品牌图、产品截图、现有营销图或图片目录，让 agent 直接创建第一版
+Brand Studio 文件：
 
 ```text
+$brand-studio 用我上传的品牌图片初始化这个 repo
+$brand-studio 从 ./brand-input 初始化
 $brand-studio 为这个 repo 初始化一个新产品视觉系统
 $brand-studio 校验 CodeFox example campaign
 $brand-studio 为 Claude 做一张 flag poster campaign，先 dry-run
 $brand-studio 用当前 theme 真实出图，然后等我验收
 $brand-studio 把已接受的 launch banner 沉淀到视觉资产状态
 ```
+
+image-first init 时，agent 用自身读图能力提取初始 palette、字体方向、视觉语言、
+avoid list 和 style alias，然后写入 `marketing.harness.yaml`、
+`assets/marketing/brief.md`、`assets/marketing/theme.md`、preview campaign
+和初始 state 文件，再调用现有 launcher 做 validate 和 dry-run。harness 本身不
+分析图片，也不调用 vision API。
 
 安装后的 skill 内置一个 launcher：
 

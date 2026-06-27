@@ -117,6 +117,25 @@ def test_default_project_paths_match_documented_layout(tmp_path: Path) -> None:
     assert paths["approved_dir"] == tmp_path / "public/marketing"
 
 
+def test_template_declares_org_brand_standard_without_required_brief() -> None:
+    launcher = load_launcher()
+    template = ROOT / "skills/brand-studio/assets/brand-studio-template.yaml"
+
+    data = launcher.parse_yaml_document(template.read_text(encoding="utf-8"))
+
+    assert data["brandStandard"] == {
+        "source": "org-fork",
+        "path": "public/brand/brand-standard.md",
+        "themeBase": "public/brand/theme.base.md",
+        "references": "public/brand/references",
+        "version": "1.0.0",
+    }
+    assert "brief" not in data["brandStandard"]
+    assert "accepted" not in data["brandStandard"]
+    assert "assetState" not in data["brandStandard"]
+    assert "campaign" not in data["brandStandard"]
+
+
 def test_project_root_option_anchors_metadata_relative_paths(tmp_path: Path) -> None:
     project = tmp_path / "product"
     other_cwd = tmp_path / "tooling"

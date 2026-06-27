@@ -13,6 +13,13 @@ skillDistribution:
   scope: org
   ref: main
 
+brandStandard:
+  source: org-fork
+  path: public/brand/brand-standard.md
+  themeBase: public/brand/theme.base.md
+  references: public/brand/references
+  version: 1.0.0
+
 theme:
   path: assets/marketing/theme.md
   campaigns: assets/marketing/campaigns

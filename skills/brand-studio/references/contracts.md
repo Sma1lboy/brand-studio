@@ -66,6 +66,12 @@ skillDistribution:
   fork: "codefox-org/brand-studio"
   scope: "org"
   ref: "main"
+brandStandard:
+  source: "org-fork"
+  path: "public/brand/brand-standard.md"
+  themeBase: "public/brand/theme.base.md"
+  references: "public/brand/references"
+  version: "1.0.0"
 theme:
   path: "assets/marketing/theme.md"
   campaigns: "assets/marketing/campaigns"
@@ -107,9 +113,26 @@ python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
 For personal or organization use, fork the upstream skill repo and clone or
 install from that fork. The fork is the right place for shared defaults that
 multiple people or repos should see: producer preferences, policy defaults,
-templates, install notes, and org-level metadata. Product-specific theme locks,
-campaigns, accepted state, and public assets stay in product repos or asset
-repos.
+templates, install notes, org-level metadata, and org brand standards.
+Product-specific theme locks, campaigns, accepted state, and public assets stay
+in product repos or asset repos.
+
+An org fork can publish shared brand standards under:
+
+```text
+public/brand/brand-standard.md
+public/brand/theme.base.md
+public/brand/references/
+```
+
+`brand-standard.md` is the reviewable human contract. `theme.base.md` is the
+machine-readable base style lock. `brief.md` is not required; keep source-input
+rationale inside `brand-standard.md` when it matters. The org `public/brand/`
+directory is already the curated brand distribution, so product-style
+`accepted.yaml`, `asset-state.yaml`, and preview campaigns are not required
+there. Product repos should declare these files through `brandStandard` and
+derive their own product-local `theme.md` instead of editing the org standard
+in place.
 
 Agents should respect `skillDistribution.fork` or the repo's pinned submodule
 when present. They should not silently switch back to the upstream repo because

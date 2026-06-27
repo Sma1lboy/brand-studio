@@ -34,12 +34,56 @@ internal agent helpers, not as instructions for users to add assets manually.
 For personal or organization use, prefer a fork of the upstream skill repo.
 Treat the upstream repo as the generic runtime/template source, and treat the
 personal or org fork as the shared source for team metadata, policies, producer
-preferences, templates, and install notes.
+preferences, templates, install notes, and org brand standards.
 
 When working inside a product repo, use the product repo's pinned fork or local
 skill install. Do not silently switch to upstream. Product-specific `theme.md`,
 campaigns, accepted state, and public assets remain in the product repo or its
 asset repo; cross-person defaults belong in the fork.
+
+## Org Brand Standard Init
+
+When initializing the organization fork itself, store shared brand standards
+under `public/brand/` in that fork. This is the distribution surface product
+repos inherit from; it is not a product accepted corpus.
+
+Recommended org fork shape:
+
+```text
+public/brand/
+  brand-standard.md
+  theme.base.md
+  references/
+```
+
+`brand-standard.md` is the human-readable standard: positioning, visual
+language, palette, typography direction, composition rules, logo usage, voice,
+do/don't, product adaptation rules, and source-input rationale. `theme.base.md`
+is the machine-readable base style lock. Do not require a separate `brief.md`;
+if rationale is useful, keep it in `brand-standard.md` under a source inputs or
+rationale section. Treat files under `public/brand/` as the curated org brand
+distribution; do not add an org accepted-state loop unless the org fork later
+needs a separate review ledger.
+
+For org init, read user-supplied logo, website, deck, product UI, and marketing
+references first. If no files are supplied, scan `public/brand/references/` and
+then `public/brand/` once for images. Do not scan the whole fork, and do not
+create product-style campaign, accepted, or asset-state files for the org fork.
+
+Product metadata can point back to the org standard:
+
+```yaml
+brandStandard:
+  source: org-fork
+  path: public/brand/brand-standard.md
+  themeBase: public/brand/theme.base.md
+  references: public/brand/references
+  version: 1.0.0
+```
+
+During product init, read the org brand standard first, then combine it with the
+product's uploaded images, declared asset roots, and repo context to write the
+product-local `theme.md`.
 
 ## Image-First Init, Metadata Underneath
 
@@ -112,6 +156,13 @@ skillDistribution:
   scope: org
   ref: main
 
+brandStandard:
+  source: org-fork
+  path: public/brand/brand-standard.md
+  themeBase: public/brand/theme.base.md
+  references: public/brand/references
+  version: 1.0.0
+
 theme:
   path: assets/marketing/theme.md
   campaigns: assets/marketing/campaigns
@@ -163,7 +214,8 @@ Keep these roots separate:
 - **Project root:** the user's current product repo.
 - **Marketing root:** the product-owned source location from metadata, such as
   `assets/marketing`.
-- **Organization direction:** high-level visual direction from `theme.path`.
+- **Org brand standard:** shared brand rules and base theme declared by
+  `brandStandard`, usually from the org fork's `public/brand/`.
 - **Repo asset tree:** the repo-owned hierarchy under declared asset roots.
   Treat the repo and its asset directories as the asset namespace.
 - **Scratch output:** the product-owned temporary render location from metadata,

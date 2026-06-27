@@ -6,8 +6,8 @@ content:
   subject: "a precise developer-tool launch visual showing locked design tokens flowing through a clean generation pipeline into versioned marketing artifacts"
 deliverables:
   - id: "social-card"
-    size: [1200, 630]
+    size: [1200, 640]
   - id: "square-post"
-    size: [1080, 1080]
+    size: [1088, 1088]
   - id: "web-banner"
-    size: [1920, 600]
+    size: [1920, 608]

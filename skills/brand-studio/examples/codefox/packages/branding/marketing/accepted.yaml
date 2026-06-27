@@ -6,7 +6,11 @@ revision: 1
 accepted:
   - id: "codefox-logo-launch-web-banner"
     kind: "artifact"
-    manifest: "packages/branding/public/marketing/products/codefox/codefox/1.4.0/artifacts/codefox-logo-launch/manifest.json"
+    campaign: "codefox-logo-launch"
     asset_id: "web-banner"
+    path: "packages/branding/public/marketing/codefox-logo-launch/web-banner.png"
+    manifest: "packages/branding/public/marketing/codefox-logo-launch/manifest.json"
+    run_lock: "packages/branding/.harness/out/codefox-logo-launch/run.lock.json"
+    checksum_sha256: ""
     tags: ["logo-led", "wide-banner"]
     notes: "Accepted as a reusable CodeFox logo-led campaign example."

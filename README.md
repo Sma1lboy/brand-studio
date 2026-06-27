@@ -77,12 +77,14 @@ itself does not analyze images or call vision APIs.
 The installed skill contains a launcher:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" ...
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata marketing.harness.yaml ...
 ```
 
 The launcher keeps paths rooted in the current product repo and runs the bundled
 scripts in the installed skill. It does not call `uvx` or discover a parent
-runtime checkout.
+runtime checkout. YAML metadata requires PyYAML; use `uv run python ...` from
+this checkout or run `uv sync` before invoking the launcher directly.
 
 ## Repo Shape
 
@@ -121,8 +123,15 @@ variants, X/XHS cards, or social images, run the read-only state preflight and
 use that output in the production plan:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata path/to/marketing.harness.yaml state
 ```
+
+After the user accepts exact live candidates, agents may use the internal
+`accept` helper to copy files from scratch into `artifacts.approved`, generate
+an approved manifest from the real file, and update accepted state. The helper
+does not run git commands and is not an asset collection workflow for
+unreviewed files.
 
 Release-version marketing starts with a copy asset. The launcher reads release
 entries from standard `CHANGELOG.md` locations, summarizes them into
@@ -138,7 +147,8 @@ the canonical text asset; it does not write a separate `key_points` block.
 Generate only the text asset when you want to review or revise the wording:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata path/to/marketing.harness.yaml \
   release-copy --write --releases 4
 ```
 
@@ -149,7 +159,8 @@ from the changelog. The resulting `producer-context.json` is the handoff to the
 metadata-selected image producer skill:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata path/to/marketing.harness.yaml \
   release-render --releases 4
 ```
 
@@ -185,7 +196,7 @@ exact files or asset ids.
 uv run ruff check .
 uv run pytest
 cd skills/brand-studio/examples/codefox
-uv run python ../../scripts/harness.py --metadata marketing.harness.yaml validate
+uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml validate
 ```
 
 Use the checked-in skill payload directly through a fork, submodule, or local

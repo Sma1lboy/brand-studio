@@ -184,11 +184,18 @@ by default. Use metadata paths.
 The launcher is:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py"
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" --metadata marketing.harness.yaml
 ```
 
-It runs the bundled scripts in this skill. There is no `uvx` remote runtime
-fallback and no ancestor checkout discovery.
+Pass `--project-root` whenever the command may run from a skill checkout,
+submodule, monorepo tool directory, or any cwd that is not the product repo root.
+All metadata-relative paths are resolved under the resolved project root. The
+launcher runs the bundled scripts in this skill. There is no `uvx` remote
+runtime fallback and no ancestor checkout discovery.
+
+YAML metadata requires PyYAML. Use `uv run python ...` from this skill checkout
+or install dependencies with `uv sync`; do not rely on the old simplified YAML
+fallback for metadata lists.
 
 Use `scripts/check_harness.sh` and `scripts/bootstrap_project.sh` only as
 internal setup helpers. Bootstrap is create-only, dry-run by default, and must
@@ -201,6 +208,10 @@ show the user the planned directories before any write.
 - Do not call image APIs until the user has approved the cost/action.
 - Do not update accepted state until the user has accepted specific generated
   candidates.
+- Brand Studio itself does not drive git. If the product repo's own AGENTS.md or
+  user instructions explicitly require commits, follow those higher-priority
+  repo rules and stage only Brand Studio metadata, state, manifests, and
+  accepted assets related to the requested work.
 
 For the lifecycle, read `references/workflows.md`. For schema contracts, read
 `references/contracts.md`.
@@ -232,14 +243,22 @@ Proposal review flow:
 ## Production Lifecycle
 
 Before live generation, confirm API usage, possible cost, and the exact
-external producer skill. The harness treats third-party production skills as
-local producer capabilities, not vendored dependencies. It does not wrap GPT,
-OpenAI, or any image API. Bind producer skills in metadata under `skills`, then
-use only locally installed or explicitly configured producers. Do not auto-download,
+external producer skill. If the user directly asks for live generation, treat
+that as action approval, but still state the selected producer and that the call
+may bill before invoking it. If the request is ambiguous, stop and ask for
+confirmation. The harness treats third-party production skills as local producer
+capabilities, not vendored dependencies. It does not wrap GPT, OpenAI, or any
+image API. Bind producer skills in metadata under `skills`, then use only
+locally installed or explicitly configured producers. Do not auto-download,
 auto-install, or silently switch production producers. Credentials belong to
 the selected producer's environment; never print, commit, or copy them into
 configuration files. `producer.model` is an optional hint; the selected
 producer decides whether it supports it.
+
+Validate producer constraints before handoff. For `gpt-image`, deliverable
+dimensions must be positive, use supported image formats, keep reasonable aspect
+ratios, and align width/height to 16px. Adjust campaign sizes during planning
+or dry-run rather than after spending producer calls.
 
 Use this loop:
 
@@ -251,10 +270,17 @@ Use this loop:
 4. Ask the user to approve live generation cost and the external producer.
 5. Pass the dry-run context to the selected producer and place candidates in
    `artifacts.scratch`.
-6. Show candidate paths, manifest, run lock, and review notes.
+6. Show candidate paths, producer output metadata, run lock, and review notes.
 7. Ask the user which exact candidates are accepted.
-8. Copy accepted files into `artifacts.approved` and update `state.accepted`.
+8. Use the internal accept helper to copy accepted files into
+   `artifacts.approved`, write an approved manifest from real files, and update
+   `state.accepted`.
 9. Use the updated accepted state as input for the next production cycle.
+
+The dry-run `manifest.json` describes SVG placeholders and prompt context. It is
+not the approved manifest for real producer PNG/JPEG/WebP files. The approved
+manifest is generated only after user acceptance, from the real file's mime
+type, dimensions, and checksum.
 
 The approved asset directory should come from metadata. It may be a public
 package directory, a separate asset git repository, or a submodule. The skill
@@ -263,16 +289,54 @@ never edits `.gitattributes` and never runs `git add`, `commit`, or `push`.
 Internal preflight helper:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata path/to/marketing.harness.yaml state
 ```
 
 Use this output to ground the production plan. Do not treat it as an asset
 intake or promotion command.
 
+Internal acceptance helper, after the user has accepted a concrete candidate:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata marketing.harness.yaml accept \
+  --campaign launch \
+  --asset-id web-banner \
+  --file .harness/marketing/out/launch/web-banner.png \
+  --checksum-sha256 <sha256> \
+  --notes "Accepted by user review." \
+  --tags launch,web-banner \
+  --plan assets/marketing/plans/launch.plan.yaml \
+  --update-asset-state
+```
+
+Use this only after acceptance. In a single-candidate context, user language such
+as "this is good", "no changes", or "use this one" can count as accepting that
+candidate. In a multi-candidate context, ask for exact asset ids or file paths.
+The helper copies from scratch to approved assets, writes an approved manifest,
+validates mime, dimensions, and checksum, updates `accepted.yaml`, optionally
+updates `asset-state.yaml` and plan status, and never runs git commands.
+
+## Legacy Migration
+
+Older repos may have `brand.lock.yaml`, `brand.meta.yaml`, `elements.yaml`, or
+loose `references/` without a current `theme.md` and accepted corpus. Migrate
+without treating every existing file as accepted:
+
+1. Read old lock/meta/reference files as source context.
+2. Distill stable visual decisions into `theme.md` frontmatter and notes.
+3. Move reusable reference files under metadata `theme.references`.
+4. Write curated facts or patterns into `asset-state.yaml`.
+5. Write `accepted.yaml` only for files the user explicitly accepts or that the
+   repo already documents as approved deliverables.
+6. Run validate and dry-run before replacing the official theme.
+
 Release-version helpers:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata path/to/marketing.harness.yaml \
   release-copy --write --releases 4
 ```
 
@@ -285,7 +349,8 @@ Treat that file as the text-asset handoff into campaign and image production.
 not write a separate `key_points` block.
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata path/to/marketing.harness.yaml \
   release-render --releases 4
 ```
 
@@ -308,8 +373,8 @@ After code or workflow changes:
 uv run ruff check .
 uv run pytest
 cd skills/brand-studio/examples/codefox
-uv run python ../../scripts/harness.py --metadata marketing.harness.yaml validate
-uv run python ../../scripts/harness.py --metadata marketing.harness.yaml render --dry-run
+uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml validate
+uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml render --dry-run
 ```
 
 Check that no API key, authorization header, machine-specific path, or raw image

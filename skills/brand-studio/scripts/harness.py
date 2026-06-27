@@ -1,28 +1,33 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import hashlib
 import json
+import mimetypes
 import os
 import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+INTERNAL_METADATA_BASE_KEY = "__brand_studio_metadata_base"
+INTERNAL_PROJECT_ROOT_OVERRIDE_KEY = "__brand_studio_project_root_override"
 VALUE_FLAGS = {
     "--brand",
     "--theme",
     "--outputs-dir",
 }
-DEFAULT_MARKETING_ROOT = "marketing"
-DEFAULT_SCRATCH_DIR = ".harness/out"
-DEFAULT_APPROVED_DIR = "marketing/approved"
+DEFAULT_MARKETING_ROOT = "assets/marketing"
+DEFAULT_SCRATCH_DIR = ".harness/marketing/out"
+DEFAULT_APPROVED_DIR = "public/marketing"
 DEFAULT_RELEASE_STYLE = "launch-hero"
 DEFAULT_RELEASE_DELIVERABLES = [
-    ("release-card", (1200, 630)),
-    ("release-square", (1080, 1080)),
-    ("release-poster", (1080, 1920)),
+    ("release-card", (1200, 640)),
+    ("release-square", (1088, 1088)),
+    ("release-poster", (1088, 1920)),
 ]
 SLUG_PART_RE = re.compile(r"[^a-z0-9]+")
 CHANGELOG_VERSION_HEADING_RE = re.compile(
@@ -60,7 +65,12 @@ RELEASE_VALUE_OPTIONS = {
 
 def main() -> int:
     args, metadata_path = extract_option(sys.argv[1:], "--metadata")
-    metadata = load_metadata(metadata_path) if metadata_path else {}
+    args, project_root_value = extract_option(args, "--project-root")
+    metadata = load_metadata(metadata_path, project_root_value) if metadata_path else {}
+    if project_root_value and not metadata_path:
+        metadata[INTERNAL_PROJECT_ROOT_OVERRIDE_KEY] = str(
+            Path(project_root_value).expanduser().resolve()
+        )
 
     if args[:1] == ["plan"]:
         print_plan(metadata)
@@ -74,6 +84,9 @@ def main() -> int:
 
     if args[:1] == ["bootstrap"]:
         return bootstrap_project(args[1:], metadata, metadata_path)
+
+    if args[:1] == ["accept"]:
+        return accept_asset(args[1:], metadata, metadata_path)
 
     if args[:1] == ["release-campaign"]:
         return release_campaign(args[1:], metadata, metadata_path)
@@ -90,6 +103,11 @@ def main() -> int:
         return 0
 
     command_args = apply_metadata_args(args, metadata)
+    constraint_errors = producer_constraint_errors(command_args, metadata)
+    if constraint_errors:
+        for error in constraint_errors:
+            print(error, file=sys.stderr)
+        return 1
     command = bundled_cli_command()
     completed = subprocess.run([*command, *command_args], check=False)
     return completed.returncode
@@ -189,6 +207,179 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
             "no .gitignore or .gitattributes edits are made"
         )
     return 0
+
+
+def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    usage = (
+        "usage: harness.py accept --metadata FILE --campaign NAME --asset-id ID "
+        "--file FILE [--checksum-sha256 SHA256] [--notes TEXT] [--tags a,b] "
+        "[--plan FILE] [--update-asset-state]"
+    )
+    options = parse_accept_options(args, usage)
+    if isinstance(options, str):
+        print(options, file=sys.stderr)
+        return 1
+
+    project_root = project_root_for(metadata)
+    paths = project_paths(metadata, project_root)
+    candidate = Path(resolve_project_path(project_root, options["file"]))
+    scratch_dir = paths["scratch_dir"].resolve()
+    try:
+        candidate.resolve().relative_to(scratch_dir)
+    except ValueError:
+        print(
+            f"{candidate}: accepted candidates must come from artifacts.scratch "
+            f"({scratch_dir})",
+            file=sys.stderr,
+        )
+        return 1
+    if not candidate.is_file():
+        print(f"{candidate}: candidate file not found", file=sys.stderr)
+        return 1
+
+    actual_checksum = checksum_path(candidate)
+    expected_checksum = str(options.get("checksum_sha256") or "")
+    if expected_checksum and expected_checksum != actual_checksum:
+        print(
+            f"{candidate}: checksum mismatch; expected {expected_checksum}, "
+            f"got {actual_checksum}",
+            file=sys.stderr,
+        )
+        return 1
+
+    metadata_result = read_candidate_metadata(candidate)
+    if metadata_result["error"]:
+        print(str(metadata_result["error"]), file=sys.stderr)
+        return 1
+
+    campaign = str(options["campaign"])
+    asset_id = str(options["asset_id"])
+    run_lock = candidate.parent / "run.lock.json"
+    expected_size = expected_asset_size(run_lock, asset_id)
+    if expected_size and metadata_result["size"] != expected_size:
+        print(
+            f"{candidate}: size mismatch; expected {expected_size[0]}x{expected_size[1]}, "
+            f"got {metadata_result['size'][0]}x{metadata_result['size'][1]}",
+            file=sys.stderr,
+        )
+        return 1
+
+    approved_dir = paths["approved_dir"] / campaign
+    approved_file = approved_dir / candidate.name
+    approved_file.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(candidate, approved_file)
+
+    manifest_path = approved_dir / "manifest.json"
+    manifest_asset = build_approved_manifest_asset(
+        project_root=project_root,
+        asset_id=asset_id,
+        source=candidate,
+        approved=approved_file,
+        checksum=actual_checksum,
+        metadata=metadata_result,
+        run_lock=run_lock if run_lock.is_file() else None,
+    )
+    write_approved_manifest(
+        manifest_path=manifest_path,
+        campaign=campaign,
+        project_root=project_root,
+        asset=manifest_asset,
+    )
+
+    accepted_path = paths["accepted_state"]
+    accepted_entry = build_accepted_entry(
+        project_root=project_root,
+        project_id=string_at(metadata, "project", "id") or project_root.name,
+        campaign=campaign,
+        asset_id=asset_id,
+        approved_file=approved_file,
+        manifest_path=manifest_path,
+        run_lock=run_lock if run_lock.is_file() else None,
+        checksum=actual_checksum,
+        metadata=metadata_result,
+        notes=str(options.get("notes") or ""),
+        tags=accept_tags(str(options.get("tags") or ""), campaign, asset_id),
+    )
+    upsert_accepted_entry(accepted_path, accepted_entry, project_root)
+
+    if options["update_asset_state"]:
+        upsert_asset_state(paths["asset_index"], accepted_entry, project_root)
+
+    plan_value = options.get("plan")
+    if plan_value:
+        update_plan_status(Path(resolve_project_path(project_root, plan_value)), accepted_entry)
+
+    print_kv(
+        {
+            "mode": "accept",
+            "metadata": metadata_path or "",
+            "project_root": project_root,
+            "campaign": campaign,
+            "asset_id": asset_id,
+            "source": candidate,
+            "approved": approved_file,
+            "manifest": manifest_path,
+            "accepted": accepted_path,
+            "checksum_sha256": actual_checksum,
+        }
+    )
+    return 0
+
+
+def parse_accept_options(args: list[str], usage: str) -> dict[str, Any] | str:
+    options: dict[str, Any] = {
+        "campaign": "",
+        "asset_id": "",
+        "file": "",
+        "checksum_sha256": "",
+        "notes": "",
+        "tags": "",
+        "plan": "",
+        "update_asset_state": False,
+    }
+    value_options = {
+        "--campaign": "campaign",
+        "--asset-id": "asset_id",
+        "--file": "file",
+        "--checksum-sha256": "checksum_sha256",
+        "--notes": "notes",
+        "--tags": "tags",
+        "--plan": "plan",
+    }
+    remaining = list(args)
+    while remaining:
+        token = remaining.pop(0)
+        if token in {"-h", "--help"}:
+            print(usage)
+            raise SystemExit(0)
+        if token == "--update-asset-state":
+            options["update_asset_state"] = True
+            continue
+        if token in value_options:
+            if not remaining:
+                return f"{token} requires a value"
+            options[value_options[token]] = remaining.pop(0)
+            continue
+        matched = False
+        for flag, key in value_options.items():
+            if token.startswith(f"{flag}="):
+                options[key] = token.split("=", 1)[1]
+                matched = True
+                break
+        if matched:
+            continue
+        if token.startswith("-"):
+            return f"unknown accept option: {token}"
+        return usage
+
+    for key in ("campaign", "asset_id", "file"):
+        if not options[key]:
+            return f"accept requires --{key.replace('_', '-')}"
+    if options["checksum_sha256"] and not re.fullmatch(
+        r"[0-9a-fA-F]{64}", options["checksum_sha256"]
+    ):
+        return "--checksum-sha256 must be a 64-character hex digest"
+    return options
 
 
 def release_campaign(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
@@ -1405,6 +1596,98 @@ def yaml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
+def producer_constraint_errors(args: list[str], metadata: dict[str, Any]) -> list[str]:
+    if not metadata or not args or args[0] not in {"validate", "render"}:
+        return []
+    campaign_value = first_positional(args, start=1)
+    theme_value = option_value(args, "--theme") or option_value(args, "--brand")
+    if not campaign_value or not theme_value:
+        return []
+    project_root = project_root_for(metadata)
+    campaign_path = Path(resolve_project_path(project_root, campaign_value))
+    theme_path = Path(resolve_project_path(project_root, theme_value))
+    try:
+        from harness_runtime.config import load_harness_config
+
+        loaded = load_harness_config(campaign_path=campaign_path, brand_path=theme_path)
+    except Exception:
+        return []
+
+    producer_name = " ".join(
+        value.lower()
+        for value in (
+            string_at(metadata, "skills", "image") or "",
+            loaded.brand.producer.producer_id or "",
+            loaded.brand.producer.model or "",
+        )
+    )
+    if "gpt-image" not in producer_name:
+        return []
+
+    errors: list[str] = []
+    output_format = loaded.brand.producer.params.output_format.lower()
+    if output_format not in {"png", "jpeg", "jpg", "webp"}:
+        errors.append(
+            "gpt-image constraint: producer.params.output_format must be one of "
+            "png, jpeg, jpg, or webp"
+        )
+
+    for deliverable in loaded.campaign.deliverables:
+        width, height = deliverable.size
+        if width % 16 or height % 16:
+            suggested = f"{round_up_to_multiple(width, 16)}x{round_up_to_multiple(height, 16)}"
+            errors.append(
+                f"gpt-image constraint: deliverable {deliverable.id} size "
+                f"{width}x{height} must be a multiple of 16; suggested {suggested}"
+            )
+        ratio = width / height
+        if ratio < 0.25 or ratio > 4:
+            errors.append(
+                f"gpt-image constraint: deliverable {deliverable.id} aspect ratio "
+                "must be between 1:4 and 4:1"
+            )
+
+    references = loaded.resolved_style.references
+    if len(references) > 10:
+        errors.append("gpt-image constraint: use at most 10 reference images")
+    for reference in references:
+        suffix = Path(reference).suffix.lower()
+        if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+            errors.append(
+                f"gpt-image constraint: reference image {reference} must be png, jpg, jpeg, or webp"
+            )
+    return errors
+
+
+def first_positional(args: list[str], start: int) -> str | None:
+    skip_next = False
+    for token in args[start:]:
+        if skip_next:
+            skip_next = False
+            continue
+        if token in VALUE_FLAGS:
+            skip_next = True
+            continue
+        if any(token.startswith(f"{flag}=") for flag in VALUE_FLAGS):
+            continue
+        if not token.startswith("-"):
+            return token
+    return None
+
+
+def option_value(args: list[str], flag: str) -> str | None:
+    for index, token in enumerate(args):
+        if token == flag and index + 1 < len(args):
+            return args[index + 1]
+        if token.startswith(f"{flag}="):
+            return token.split("=", 1)[1]
+    return None
+
+
+def round_up_to_multiple(value: int, multiple: int) -> int:
+    return ((value + multiple - 1) // multiple) * multiple
+
+
 def slugify(value: str, default: str) -> str:
     slug = SLUG_PART_RE.sub("-", value.strip().lower()).strip("-")
     return slug or default
@@ -1415,6 +1698,9 @@ def check_project(args: list[str], metadata: dict[str, Any], metadata_path: str 
     project_root = project_root_for(metadata, fallback=Path(target).resolve())
     paths = project_paths(metadata, project_root)
     yaml_ready = python_module_available("yaml")
+    theme_path = theme_source_path(metadata, project_root)
+    campaign_value = metadata_path_value(metadata, "campaign", "path")
+    campaign_path = resolve_project_path(project_root, campaign_value) if campaign_value else None
 
     print_kv(
         {
@@ -1423,17 +1709,9 @@ def check_project(args: list[str], metadata: dict[str, Any], metadata_path: str 
             "marketing_root": paths["marketing_root"],
             "marketing_root_exists": paths["marketing_root"].exists(),
             "theme": theme_source_path_value(metadata) or "",
-            "theme_exists": Path(
-                theme_source_path_value(metadata) or ""
-            ).exists()
-            if theme_source_path_value(metadata)
-            else False,
+            "theme_exists": Path(theme_path).exists() if theme_path else False,
             "campaign": metadata_path_value(metadata, "campaign", "path") or "",
-            "campaign_exists": Path(
-                metadata_path_value(metadata, "campaign", "path") or ""
-            ).exists()
-            if metadata_path_value(metadata, "campaign", "path")
-            else False,
+            "campaign_exists": Path(campaign_path).exists() if campaign_path else False,
             "scratch_dir": paths["scratch_dir"],
             "approved_dir": paths["approved_dir"],
             "plans_dir": paths["plans_dir"],
@@ -1504,18 +1782,18 @@ def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Pat
     )
     scratch_dir = path_at(metadata, project_root, DEFAULT_SCRATCH_DIR, "artifacts", "scratch")
     approved_dir = path_at(metadata, project_root, DEFAULT_APPROVED_DIR, "artifacts", "approved")
-    plans_dir = path_at(metadata, project_root, "marketing/plans", "state", "plans")
+    plans_dir = path_at(metadata, project_root, "assets/marketing/plans", "state", "plans")
     asset_index = path_at(
         metadata,
         project_root,
-        "marketing/asset-state.yaml",
+        "assets/marketing/asset-state.yaml",
         "state",
         "assetIndex",
     )
     accepted_state = path_at(
         metadata,
         project_root,
-        "marketing/accepted.yaml",
+        "assets/marketing/accepted.yaml",
         "state",
         "accepted",
     )
@@ -1778,6 +2056,361 @@ def count_images(root: Path, scratch_dir: Path) -> int:
     return count
 
 
+def checksum_path(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def read_candidate_metadata(path: Path) -> dict[str, Any]:
+    mime_type = mime_type_for(path)
+    if mime_type == "image/png":
+        size, error = read_png_size(path)
+    elif mime_type in {"image/jpeg", "image/jpg"}:
+        size, error = read_jpeg_size(path)
+    elif mime_type == "image/svg+xml":
+        size, error = read_svg_size(path)
+    else:
+        size, error = None, f"{path}: unsupported accepted asset format {path.suffix}"
+    return {
+        "mime_type": mime_type,
+        "size": size or [0, 0],
+        "error": error,
+    }
+
+
+def mime_type_for(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".png":
+        return "image/png"
+    if suffix in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if suffix == ".webp":
+        return "image/webp"
+    if suffix == ".svg":
+        return "image/svg+xml"
+    return mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+
+
+def read_png_size(path: Path) -> tuple[list[int] | None, str | None]:
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        return None, f"{path}: cannot read PNG: {exc}"
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+        return None, f"{path}: invalid PNG header"
+    width = int.from_bytes(data[16:20], "big")
+    height = int.from_bytes(data[20:24], "big")
+    return [width, height], None
+
+
+def read_jpeg_size(path: Path) -> tuple[list[int] | None, str | None]:
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        return None, f"{path}: cannot read JPEG: {exc}"
+    if len(data) < 4 or data[:2] != b"\xff\xd8":
+        return None, f"{path}: invalid JPEG header"
+    index = 2
+    while index + 9 < len(data):
+        if data[index] != 0xFF:
+            index += 1
+            continue
+        marker = data[index + 1]
+        index += 2
+        if marker in {0xD8, 0xD9}:
+            continue
+        if index + 2 > len(data):
+            break
+        length = int.from_bytes(data[index : index + 2], "big")
+        if marker in {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB}:
+            if index + 7 > len(data):
+                break
+            height = int.from_bytes(data[index + 3 : index + 5], "big")
+            width = int.from_bytes(data[index + 5 : index + 7], "big")
+            return [width, height], None
+        index += max(length, 2)
+    return None, f"{path}: JPEG dimensions not found"
+
+
+def read_svg_size(path: Path) -> tuple[list[int] | None, str | None]:
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return None, f"{path}: cannot read SVG: {exc}"
+    width_match = re.search(r'\bwidth="([0-9]+)(?:px)?"', raw)
+    height_match = re.search(r'\bheight="([0-9]+)(?:px)?"', raw)
+    if not width_match or not height_match:
+        viewbox = re.search(r'\bviewBox="(?:[-0-9.]+\s+){2}([0-9.]+)\s+([0-9.]+)"', raw)
+        if viewbox:
+            return [int(float(viewbox.group(1))), int(float(viewbox.group(2)))], None
+        return None, f"{path}: SVG dimensions not found"
+    return [int(width_match.group(1)), int(height_match.group(1))], None
+
+
+def expected_asset_size(run_lock: Path, asset_id: str) -> list[int] | None:
+    if not run_lock.is_file():
+        return None
+    try:
+        data = json.loads(run_lock.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    assets = data.get("assets") if isinstance(data, dict) else []
+    if not isinstance(assets, list):
+        return None
+    for asset in assets:
+        if not isinstance(asset, dict) or str(asset.get("id") or "") != asset_id:
+            continue
+        size = asset.get("size")
+        if (
+            isinstance(size, list)
+            and len(size) == 2
+            and all(isinstance(item, int) and item > 0 for item in size)
+        ):
+            return [size[0], size[1]]
+    return None
+
+
+def build_approved_manifest_asset(
+    *,
+    project_root: Path,
+    asset_id: str,
+    source: Path,
+    approved: Path,
+    checksum: str,
+    metadata: dict[str, Any],
+    run_lock: Path | None,
+) -> dict[str, Any]:
+    return {
+        "id": asset_id,
+        "file": approved.name,
+        "path": relative_project_path(project_root, approved),
+        "source_path": relative_project_path(project_root, source),
+        "run_lock": relative_project_path(project_root, run_lock) if run_lock else "",
+        "size": metadata["size"],
+        "mime_type": metadata["mime_type"],
+        "checksum_sha256": checksum,
+    }
+
+
+def write_approved_manifest(
+    *,
+    manifest_path: Path,
+    campaign: str,
+    project_root: Path,
+    asset: dict[str, Any],
+) -> None:
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            manifest = {}
+    else:
+        manifest = {}
+    assets = manifest.get("assets") if isinstance(manifest.get("assets"), list) else []
+    assets = [
+        existing
+        for existing in assets
+        if not (isinstance(existing, dict) and existing.get("id") == asset["id"])
+    ]
+    assets.append(asset)
+    manifest = {
+        "schema_version": "1.0",
+        "kind": "approved_manifest",
+        "campaign": campaign,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "project_root": str(project_root),
+        "assets": assets,
+    }
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def build_accepted_entry(
+    *,
+    project_root: Path,
+    project_id: str,
+    campaign: str,
+    asset_id: str,
+    approved_file: Path,
+    manifest_path: Path,
+    run_lock: Path | None,
+    checksum: str,
+    metadata: dict[str, Any],
+    notes: str,
+    tags: list[str],
+) -> dict[str, Any]:
+    entry_id = f"{campaign}-{asset_id}"
+    return {
+        "id": entry_id,
+        "kind": "artifact",
+        "campaign": campaign,
+        "asset_id": asset_id,
+        "path": relative_project_path(project_root, approved_file),
+        "manifest": relative_project_path(project_root, manifest_path),
+        "run_lock": relative_project_path(project_root, run_lock) if run_lock else "",
+        "checksum_sha256": checksum,
+        "size": metadata["size"],
+        "mime_type": metadata["mime_type"],
+        "tags": tags,
+        "notes": notes or f"Accepted {asset_id} for {campaign}.",
+        "owner": {"kind": "repo", "id": project_id},
+    }
+
+
+def upsert_accepted_entry(path: Path, entry: dict[str, Any], project_root: Path) -> None:
+    data = read_yaml_mapping(path)
+    data.setdefault("schema_version", "1.0")
+    data.setdefault(
+        "owner",
+        {"kind": "repo", "id": str(entry.get("owner", {}).get("id") or project_root.name)},
+    )
+    accepted = data.get("accepted") if isinstance(data.get("accepted"), list) else []
+    accepted = [
+        item
+        for item in accepted
+        if not (isinstance(item, dict) and item.get("id") == entry["id"])
+    ]
+    stored = dict(entry)
+    stored.pop("owner", None)
+    accepted.append(stored)
+    data["accepted"] = accepted
+    data["revision"] = positive_revision(data.get("revision")) + 1
+    write_yaml_mapping(path, data)
+
+
+def upsert_asset_state(path: Path, entry: dict[str, Any], project_root: Path) -> None:
+    data = read_yaml_mapping(path)
+    data.setdefault("schema_version", "1.0")
+    data.setdefault(
+        "owner",
+        {"kind": "repo", "id": str(entry.get("owner", {}).get("id") or project_root.name)},
+    )
+    assets = data.get("assets") if isinstance(data.get("assets"), list) else []
+    asset_entry = {
+        "id": entry["id"],
+        "path": entry["path"],
+        "kind": entry["kind"],
+        "campaign": entry["campaign"],
+        "asset_id": entry["asset_id"],
+        "size": entry["size"],
+        "mime_type": entry["mime_type"],
+        "checksum_sha256": entry["checksum_sha256"],
+        "tags": entry["tags"],
+    }
+    assets = [
+        item
+        for item in assets
+        if not (isinstance(item, dict) and item.get("id") == asset_entry["id"])
+    ]
+    assets.append(asset_entry)
+    data["assets"] = assets
+    data["revision"] = positive_revision(data.get("revision")) + 1
+    write_yaml_mapping(path, data)
+
+
+def update_plan_status(path: Path, entry: dict[str, Any]) -> None:
+    data = read_yaml_mapping(path)
+    data["status"] = "accepted"
+    data["accepted_asset"] = {
+        "id": entry["id"],
+        "path": entry["path"],
+        "checksum_sha256": entry["checksum_sha256"],
+    }
+    write_yaml_mapping(path, data)
+
+
+def read_yaml_mapping(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    data = load_structured_file(path)
+    return data if isinstance(data, dict) else {}
+
+
+def write_yaml_mapping(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_yaml(data), encoding="utf-8")
+
+
+def render_yaml(value: Any, indent: int = 0) -> str:
+    return "\n".join(render_yaml_lines(value, indent)) + "\n"
+
+
+def render_yaml_lines(value: Any, indent: int = 0) -> list[str]:
+    prefix = " " * indent
+    if isinstance(value, dict):
+        lines: list[str] = []
+        for key, child in value.items():
+            if isinstance(child, (dict, list)):
+                lines.append(f"{prefix}{key}:")
+                lines.extend(render_yaml_lines(child, indent + 2))
+            else:
+                lines.append(f"{prefix}{key}: {yaml_scalar(child)}")
+        return lines
+    if isinstance(value, list):
+        lines = []
+        for item in value:
+            if isinstance(item, dict):
+                if not item:
+                    lines.append(f"{prefix}- {{}}")
+                    continue
+                first_key, first_child = next(iter(item.items()))
+                if isinstance(first_child, (dict, list)):
+                    lines.append(f"{prefix}- {first_key}:")
+                    lines.extend(render_yaml_lines(first_child, indent + 4))
+                else:
+                    lines.append(f"{prefix}- {first_key}: {yaml_scalar(first_child)}")
+                for key, child in list(item.items())[1:]:
+                    if isinstance(child, (dict, list)):
+                        lines.append(f"{prefix}  {key}:")
+                        lines.extend(render_yaml_lines(child, indent + 4))
+                    else:
+                        lines.append(f"{prefix}  {key}: {yaml_scalar(child)}")
+            elif isinstance(item, list):
+                lines.append(f"{prefix}-")
+                lines.extend(render_yaml_lines(item, indent + 2))
+            else:
+                lines.append(f"{prefix}- {yaml_scalar(item)}")
+        return lines
+    return [f"{prefix}{yaml_scalar(value)}"]
+
+
+def yaml_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    if value is None:
+        return "null"
+    return yaml_string(str(value))
+
+
+def positive_revision(value: Any) -> int:
+    return value if isinstance(value, int) and value >= 0 else 0
+
+
+def accept_tags(raw: str, campaign: str, asset_id: str) -> list[str]:
+    tags = [item.strip() for item in raw.split(",") if item.strip()]
+    for default in (campaign, asset_id, "accepted"):
+        if default not in tags:
+            tags.append(default)
+    return tags
+
+
+def relative_project_path(project_root: Path, path: Path | None) -> str:
+    if path is None:
+        return ""
+    try:
+        return path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
 def copy_example(marketing_root: Path) -> None:
     example = Path(__file__).resolve().parents[1] / "examples" / "codefox"
     target = marketing_root / "examples" / "codefox"
@@ -1787,7 +2420,7 @@ def copy_example(marketing_root: Path) -> None:
     shutil.copytree(example, target)
 
 
-def load_metadata(path: str | None) -> dict[str, Any]:
+def load_metadata(path: str | None, project_root: str | None = None) -> dict[str, Any]:
     if not path:
         return {}
     metadata_path = Path(path).expanduser()
@@ -1799,14 +2432,21 @@ def load_metadata(path: str | None) -> dict[str, Any]:
         data = parse_yaml_document(raw)
     if not isinstance(data, dict):
         raise SystemExit(f"{metadata_path}: metadata root must be an object")
+    data[INTERNAL_METADATA_BASE_KEY] = str(metadata_path.resolve().parent)
+    if project_root:
+        data[INTERNAL_PROJECT_ROOT_OVERRIDE_KEY] = str(Path(project_root).expanduser().resolve())
     return data
 
 
 def parse_yaml_document(raw: str) -> Any:
     try:
         import yaml  # type: ignore[import-untyped]
-    except ImportError:
-        return parse_simple_yaml(raw)
+    except ImportError as exc:
+        raise SystemExit(
+            "PyYAML is required to parse Brand Studio YAML metadata. "
+            "Run `uv sync` in the skill checkout or install it with "
+            "`python3 -m pip install pyyaml`; JSON metadata still works without PyYAML."
+        ) from exc
     return yaml.safe_load(raw) or {}
 
 
@@ -1865,13 +2505,18 @@ def parse_scalar(value: str) -> Any:
 
 
 def project_root_for(metadata: dict[str, Any], fallback: Path | None = None) -> Path:
+    override = string_at(metadata, INTERNAL_PROJECT_ROOT_OVERRIDE_KEY)
+    if override:
+        return Path(override).expanduser().resolve()
     root = string_at(metadata, "project", "root")
+    base_value = string_at(metadata, INTERNAL_METADATA_BASE_KEY)
+    base = Path(base_value).expanduser().resolve() if base_value else None
     if not root:
-        return fallback or Path.cwd()
+        return fallback or base or Path.cwd()
     root_path = Path(root).expanduser()
     if root_path.is_absolute():
         return root_path.resolve()
-    return (fallback or Path.cwd()).joinpath(root_path).resolve()
+    return (base or fallback or Path.cwd()).joinpath(root_path).resolve()
 
 
 def path_at(metadata: dict[str, Any], base: Path, default: str, *parts: str) -> Path:

@@ -6,8 +6,8 @@ content:
   subject: "a warm CodeFox promotional visual based on the provided orange fox mascot logo template, with the seated fox identity preserved, a locked design-token rail, and versioned campaign artifacts arranged with generous safe margins"
 deliverables:
   - id: "social-card"
-    size: [1200, 630]
+    size: [1200, 640]
   - id: "square-post"
-    size: [1080, 1080]
+    size: [1088, 1088]
   - id: "web-banner"
-    size: [1920, 600]
+    size: [1920, 608]

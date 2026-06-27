@@ -7,7 +7,8 @@ purpose: "Repo-level marketing asset memory for future CodeFox production plans.
 assets:
   - id: "codefox-logo-launch-web-banner"
     kind: "web-banner"
-    path: "accepted.yaml#codefox-logo-launch-web-banner"
+    path: "packages/branding/public/marketing/codefox-logo-launch/web-banner.png"
+    checksum_sha256: ""
     tags: ["logo-led", "wide-banner", "accepted"]
 patterns:
   - id: "manifest-backed-launch"

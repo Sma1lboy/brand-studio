@@ -28,10 +28,12 @@ read-only context. Prefer local checkouts or local caches. If remote GitHub or
 GitLab access is needed, fetch only the declared files and pin resolved commits
 in the plan. Do not copy other repos into the current product repo.
 
-Run the bundled state preflight before writing a production plan:
+Run the bundled state preflight before writing a production plan. Use
+`--project-root` when running from anywhere other than the product repo root:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --metadata path/to/marketing.harness.yaml state
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata path/to/marketing.harness.yaml state
 ```
 
 Use the JSON as a read summary of the current org, repo, directory,
@@ -63,8 +65,16 @@ Plans are source state. They are not generated image artifacts.
 ## Production
 
 Validate inputs and run a dry render first. Before live generation, ask the user
-to approve API usage and cost. Live generation writes candidate files only under
-`artifacts.scratch`.
+to approve API usage and cost unless the user directly requested live generation
+in the current task. A direct live-generation request counts as action approval,
+but the agent must still state the selected producer and that the call may bill
+before invoking it. Ambiguous requests require confirmation. Live generation
+writes candidate files only under `artifacts.scratch`.
+
+The dry-run manifest belongs to the placeholder render. It records SVG
+placeholder files and prompt context; it must not be reused as the approved
+manifest for real producer output. After live generation, approved manifests are
+generated from the accepted real files.
 
 Deliverables can include banners, landscape visuals, slide/PPT backgrounds,
 logo-theme explorations, X/XHS promotional cards, website hero assets, social
@@ -85,17 +95,37 @@ Review candidates for:
 ## Acceptance
 
 Ask the user to identify exactly which candidate files are accepted. Acceptance
-must name concrete files or asset ids from the current render. Do not infer
-acceptance from API-cost approval or from a successful render.
+must name concrete files or asset ids from the current render. In a
+single-candidate context, phrases such as "this is good", "no changes", or "use
+this one" can count as accepting that candidate. In a multi-candidate context,
+ask for exact asset ids or file paths. Do not infer acceptance from API-cost
+approval or from a successful render.
 
 For each accepted candidate:
 
 1. Copy the file into `artifacts.approved`.
-2. Copy or reference its manifest entry.
+2. Generate an approved manifest from the real file's dimensions, mime type, and
+   checksum.
 3. Record an `accepted.yaml` entry with campaign, asset id, path, checksum,
    tags, notes, and source run lock path.
 4. If the asset reveals a reusable pattern, update the relevant directory
    `asset-state.yaml`, `elements.yaml`, or a theme proposal separately.
+
+Agents should use the internal helper after acceptance:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata marketing.harness.yaml accept \
+  --campaign launch \
+  --asset-id web-banner \
+  --file .harness/marketing/out/launch/web-banner.png \
+  --checksum-sha256 <sha256>
+```
+
+The helper is not a user-facing asset collection workflow. It validates that the
+candidate comes from scratch, checks checksum and file metadata, copies it to
+the approved directory, writes the approved manifest, updates `accepted.yaml`,
+and never runs git commands.
 
 Rejected or unreviewed candidates stay in scratch and should not feed future
 planning.
@@ -116,8 +146,8 @@ accepted:
     kind: "artifact"
     campaign: "launch"
     asset_id: "web-banner"
-    path: "public/marketing/products/codefox/kobe/1.2.0/artifacts/launch/web-banner.png"
-    manifest: "public/marketing/products/codefox/kobe/1.2.0/artifacts/launch/manifest.json"
+    path: "public/marketing/launch/web-banner.png"
+    manifest: "public/marketing/launch/manifest.json"
     run_lock: ".harness/marketing/out/launch/run.lock.json"
     checksum_sha256: "..."
     tags: ["launch", "web-banner", "accepted"]

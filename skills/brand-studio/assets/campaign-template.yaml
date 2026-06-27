@@ -6,8 +6,8 @@ content:
   subject: "Main subject or scene description"
 deliverables:
   - id: "web-banner"
-    size: [1920, 600]
+    size: [1920, 608]
   - id: "social-square"
-    size: [1080, 1080]
+    size: [1088, 1088]
   - id: "poster"
-    size: [1080, 1920]
+    size: [1088, 1920]

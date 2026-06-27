@@ -94,6 +94,14 @@ Use local related repo paths when available. Remote GitHub/GitLab state should
 be fetched only when declared by metadata, and the resolved commit must be
 recorded in the production plan or review notes.
 
+When commands may run outside the product repo, pass `--project-root`; metadata
+relative paths are resolved under that root:
+
+```bash
+python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
+  --metadata marketing.harness.yaml <command>
+```
+
 ## Skill Forks And Shared Metadata
 
 For personal or organization use, fork the upstream skill repo and clone or
@@ -124,6 +132,14 @@ skill.
 - Credentials stay in environment variables and are never copied to YAML,
   manifests, run locks, or state files.
 
+For `gpt-image`, validate handoff constraints before producer calls:
+
+- deliverable width and height should be 16px aligned.
+- output format should be `png`, `jpg`/`jpeg`, or `webp`.
+- aspect ratio should stay between 1:4 and 4:1.
+- reference images should be `png`, `jpg`/`jpeg`, or `webp`, with at most 10
+  references per resolved style.
+
 ## Campaign
 
 Campaigns describe content only:
@@ -137,7 +153,7 @@ content:
   subject: "Scene or subject"
 deliverables:
   - id: "web-banner"
-    size: [1920, 600]
+    size: [1920, 608]
 ```
 
 Campaigns must not include style prompt fragments, palette, negative prompts, references, or producer params.
@@ -166,7 +182,7 @@ sources:
   related_products: []
 deliverables:
   - id: "web-banner"
-    size: [1920, 600]
+    size: [1920, 608]
 acceptance_criteria:
   - "Matches locked visual style."
   - "Visible text is legible."
@@ -186,13 +202,13 @@ related local repos:
 ```yaml
 schema_version: "1.0"
 owner:
-  kind: "directory"
-  id: "xhs-launch-cards"
+  kind: "repo"
+  id: "kobe"
 revision: 2
 purpose: "Accepted Xiaohongshu launch card patterns."
 assets:
   - id: "xhs-launch-card-01"
-    path: "card-01.png"
+    path: "public/marketing/xhs-launch/card-01.png"
     kind: "xhs-post"
     size: [1242, 1660]
     checksum_sha256: "..."
@@ -205,6 +221,10 @@ patterns:
 Directory state is descriptive input for future planning. It is not a place to
 hide generated scratch outputs. Asset entries should point at files that already
 exist in the directory and were accepted or explicitly curated.
+
+Prefer `owner.kind: "repo"` for repo-level `asset-state.yaml` and
+`accepted.yaml`. Use `owner.kind: "directory"` only for a directory-local state
+file whose scope is intentionally narrower than the product repo.
 
 ## Run Lock
 
@@ -220,9 +240,11 @@ exist in the directory and were accepted or explicitly curated.
 
 It must never contain API keys, authorization headers, or raw image base64 payloads.
 
-## Manifest
+## Dry-Run Manifest
 
-`<metadata artifacts.scratch>/<campaign>/manifest.json` is the consumer contract:
+`<metadata artifacts.scratch>/<campaign>/manifest.json` describes the dry-run
+placeholder output and prompt context. It is not the approved manifest for real
+producer files:
 
 ```json
 {
@@ -241,13 +263,38 @@ It must never contain API keys, authorization headers, or raw image base64 paylo
   "assets": [
     {
       "id": "web-banner",
-      "file": "web-banner.png",
-      "path": "web-banner.png",
+      "file": "web-banner.svg",
+      "path": "web-banner.svg",
       "url": null,
-      "size": [1920, 600],
-      "mime_type": "image/png",
+      "size": [1920, 608],
+      "mime_type": "image/svg+xml",
       "checksum_sha256": "...",
       "seed": 12345
+    }
+  ]
+}
+```
+
+## Approved Manifest
+
+Approved manifests describe real accepted files and are generated only after
+user acceptance:
+
+```json
+{
+  "schema_version": "1.0",
+  "kind": "approved_manifest",
+  "campaign": "feature-x-launch",
+  "assets": [
+    {
+      "id": "web-banner",
+      "file": "web-banner.png",
+      "path": "public/marketing/feature-x-launch/web-banner.png",
+      "source_path": ".harness/marketing/out/feature-x-launch/web-banner.png",
+      "run_lock": ".harness/marketing/out/feature-x-launch/run.lock.json",
+      "size": [1920, 608],
+      "mime_type": "image/png",
+      "checksum_sha256": "..."
     }
   ]
 }
@@ -269,20 +316,33 @@ accepted:
     kind: "artifact"
     campaign: "feature-x-launch"
     asset_id: "web-banner"
-    path: "public/marketing/repos/kobe/1.1.0/artifacts/feature-x-launch/web-banner.png"
-    manifest: "public/marketing/repos/kobe/1.1.0/artifacts/feature-x-launch/manifest.json"
+    path: "public/marketing/feature-x-launch/web-banner.png"
+    manifest: "public/marketing/feature-x-launch/manifest.json"
     run_lock: ".harness/marketing/out/feature-x-launch/run.lock.json"
     checksum_sha256: "..."
     tags: ["launch", "web-banner"]
     notes: "Accepted by the user after review."
 ```
 
-The metadata-declared approved asset directory may be a package directory,
-asset repository, or git submodule:
+The recommended approved path shape is:
 
 ```text
-<approved>/repos/<repo-id>/<theme-version>/artifacts/<campaign>/
+<artifacts.approved>/<campaign>/<asset-file>
+<artifacts.approved>/<campaign>/manifest.json
 ```
+
+Use a deeper product/version/channel path only when the product repo already has
+that asset repository layout or the metadata-declared approved path points at a
+submodule or asset package requiring it.
 
 Do not use scratch output as accepted state. Do not add assets to this corpus
 without user acceptance.
+
+## Legacy Migration
+
+Legacy `brand.lock.yaml`, `brand.meta.yaml`, `elements.yaml`, and loose
+`references/` files are source context, not automatically accepted assets.
+Migrate by distilling stable visual decisions into `theme.md`, moving durable
+references under metadata `theme.references`, recording reusable facts in
+`asset-state.yaml`, and writing `accepted.yaml` only for files the user or repo
+history clearly marks as accepted deliverables.

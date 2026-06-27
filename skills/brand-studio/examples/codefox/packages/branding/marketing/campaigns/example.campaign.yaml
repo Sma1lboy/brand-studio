@@ -6,12 +6,12 @@ content:
   subject: "a polished SaaS product launch visual centered on a luminous product interface"
 deliverables:
   - id: "wechat-header"
-    size: [900, 383]
+    size: [896, 384]
   - id: "moments-square"
-    size: [1080, 1080]
+    size: [1088, 1088]
   - id: "poster"
-    size: [1080, 1920]
+    size: [1088, 1920]
   - id: "web-banner"
-    size: [1920, 600]
+    size: [1920, 608]
   - id: "x-card"
-    size: [1200, 630]
+    size: [1200, 640]

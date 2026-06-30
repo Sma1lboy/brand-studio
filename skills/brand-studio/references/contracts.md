@@ -44,8 +44,16 @@ Product repos may keep optional sidecars next to the metadata-declared
 assets/marketing/theme.md
 assets/marketing/theme.meta.yaml
 assets/marketing/elements.yaml
+assets/marketing/campaigns/release/
+assets/marketing/campaigns/promo/
 assets/marketing/asset-state.yaml
 assets/marketing/accepted.yaml
+assets/marketing/portfolios/release/accepted.yaml
+assets/marketing/portfolios/release/asset-state.yaml
+assets/marketing/portfolios/release/patterns.md
+assets/marketing/portfolios/promo/accepted.yaml
+assets/marketing/portfolios/promo/asset-state.yaml
+assets/marketing/portfolios/promo/patterns.md
 assets/marketing/plans/
 public/marketing/<directory>/asset-state.yaml
 ```
@@ -74,8 +82,10 @@ brandStandard:
   version: "1.0.0"
 theme:
   path: "assets/marketing/theme.md"
-  campaigns: "assets/marketing/campaigns"
   references: "assets/marketing/references"
+campaigns:
+  release: "assets/marketing/campaigns/release"
+  promo: "assets/marketing/campaigns/promo"
 skills:
   image: "gpt-image"
   design: "frontend-design"
@@ -84,6 +94,15 @@ state:
   assetIndex: "assets/marketing/asset-state.yaml"
   accepted: "assets/marketing/accepted.yaml"
   directoryStateFile: "asset-state.yaml"
+portfolios:
+  release:
+    accepted: "assets/marketing/portfolios/release/accepted.yaml"
+    assetState: "assets/marketing/portfolios/release/asset-state.yaml"
+    patterns: "assets/marketing/portfolios/release/patterns.md"
+  promo:
+    accepted: "assets/marketing/portfolios/promo/accepted.yaml"
+    assetState: "assets/marketing/portfolios/promo/asset-state.yaml"
+    patterns: "assets/marketing/portfolios/promo/patterns.md"
 sources:
   assetRoots:
     - "assets/marketing"
@@ -114,8 +133,8 @@ For personal or organization use, fork the upstream skill repo and clone or
 install from that fork. The fork is the right place for shared defaults that
 multiple people or repos should see: producer preferences, policy defaults,
 templates, install notes, org-level metadata, and org brand standards.
-Product-specific theme locks, campaigns, accepted state, and public assets stay
-in product repos or asset repos.
+Product-specific theme locks, campaigns, portfolio accepted state, and public
+assets stay in product repos or asset repos.
 
 An org fork can publish shared brand standards under:
 
@@ -193,9 +212,9 @@ objective: "Generate launch assets for feature X."
 inputs:
   state_preflight: ".harness/marketing/state/feature-x-launch.json"
   theme: "assets/marketing/theme.md"
-  campaign: "assets/marketing/campaigns/feature-x-launch.campaign.yaml"
+  campaign: "assets/marketing/campaigns/promo/feature-x-launch.campaign.yaml"
   asset_index: "assets/marketing/asset-state.yaml"
-  accepted_corpus: "assets/marketing/accepted.yaml"
+  accepted_corpus: "assets/marketing/portfolios/promo/accepted.yaml"
   references:
     - "assets/marketing/references/main_visual.png"
 sources:
@@ -248,6 +267,53 @@ exist in the directory and were accepted or explicitly curated.
 Prefer `owner.kind: "repo"` for repo-level `asset-state.yaml` and
 `accepted.yaml`. Use `owner.kind: "directory"` only for a directory-local state
 file whose scope is intentionally narrower than the product repo.
+
+## Portfolio State
+
+Release and promo assets have separate style pools. The root `accepted.yaml`
+may remain as a transitional aggregate index, but the domain-specific accepted
+file is the default style corpus for future production.
+
+Release generation reads:
+
+```text
+assets/marketing/theme.md
+assets/marketing/campaigns/release/
+assets/marketing/portfolios/release/accepted.yaml
+assets/marketing/portfolios/release/asset-state.yaml
+assets/marketing/portfolios/release/patterns.md
+CHANGELOG.md or copy.yaml
+```
+
+Promo generation reads:
+
+```text
+assets/marketing/theme.md
+assets/marketing/campaigns/promo/
+assets/marketing/portfolios/promo/accepted.yaml
+assets/marketing/portfolios/promo/asset-state.yaml
+campaign brief and references
+```
+
+Accepted entries must include the domain fields:
+
+```yaml
+accepted:
+  - id: "release-v0-7-45-poster-logfull"
+    kind: "artifact"
+    campaign: "release-v0-7-45"
+    asset_id: "release-poster"
+    domain: "release"
+    source_kind: "changelog"
+    asset_type: "release-poster"
+    style_family: "log-full-editorial"
+    path: "public/marketing/release-v0-7-45/release-poster.png"
+```
+
+Use `domain: promo`, `source_kind: campaign-brief`,
+`asset_type: hero`, and `style_family: screen-first-field-scene` for normal
+campaign-first promotional assets unless the repo has a more specific approved
+taxonomy.
 
 ## Run Lock
 
@@ -339,6 +405,10 @@ accepted:
     kind: "artifact"
     campaign: "feature-x-launch"
     asset_id: "web-banner"
+    domain: "promo"
+    source_kind: "campaign-brief"
+    asset_type: "hero"
+    style_family: "screen-first-field-scene"
     path: "public/marketing/feature-x-launch/web-banner.png"
     manifest: "public/marketing/feature-x-launch/manifest.json"
     run_lock: ".harness/marketing/out/feature-x-launch/run.lock.json"
@@ -367,5 +437,5 @@ Legacy `brand.lock.yaml`, `brand.meta.yaml`, `elements.yaml`, and loose
 `references/` files are source context, not automatically accepted assets.
 Migrate by distilling stable visual decisions into `theme.md`, moving durable
 references under metadata `theme.references`, recording reusable facts in
-`asset-state.yaml`, and writing `accepted.yaml` only for files the user or repo
-history clearly marks as accepted deliverables.
+`asset-state.yaml`, and writing root plus matching portfolio `accepted.yaml`
+only for files the user or repo history clearly marks as accepted deliverables.

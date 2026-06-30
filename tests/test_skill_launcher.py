@@ -36,12 +36,15 @@ def metadata(root: Path) -> dict[str, object]:
         },
         "theme": {
             "path": "packages/branding/marketing/theme.md",
-            "campaigns": "packages/branding/marketing/campaigns",
             "references": "packages/branding/marketing/references",
+        },
+        "campaigns": {
+            "release": "packages/branding/marketing/campaigns/release",
+            "promo": "packages/branding/marketing/campaigns/promo",
         },
         "campaign": {
             "name": "launch",
-            "path": "packages/branding/marketing/campaigns/launch.campaign.yaml",
+            "path": "packages/branding/marketing/campaigns/promo/launch.campaign.yaml",
         },
         "artifacts": {
             "scratch": "packages/branding/.harness/out",
@@ -73,7 +76,7 @@ def test_metadata_supplies_validate_and_render_paths(tmp_path: Path) -> None:
     validate_args = launcher.apply_metadata_args(["validate"], meta)
     render_args = launcher.apply_metadata_args(["render", "--dry-run"], meta)
 
-    campaign = str(tmp_path / "packages/branding/marketing/campaigns/launch.campaign.yaml")
+    campaign = str(tmp_path / "packages/branding/marketing/campaigns/promo/launch.campaign.yaml")
     theme = str(tmp_path / "packages/branding/marketing/theme.md")
     outputs = str(tmp_path / "packages/branding/.harness/out")
     assert validate_args == ["validate", campaign, "--theme", theme]
@@ -94,12 +97,29 @@ def test_metadata_project_paths_are_root_relative(tmp_path: Path) -> None:
     paths = launcher.project_paths(metadata(tmp_path), tmp_path)
 
     assert paths["marketing_root"] == tmp_path / "packages/branding/marketing"
-    assert paths["campaigns_dir"] == tmp_path / "packages/branding/marketing/campaigns"
+    assert paths["campaigns_root"] == tmp_path / "packages/branding/marketing/campaigns"
+    assert paths["campaigns_dir"] == tmp_path / "packages/branding/marketing/campaigns/promo"
+    assert paths["campaign_dirs"] == {
+        "release": tmp_path / "packages/branding/marketing/campaigns/release",
+        "promo": tmp_path / "packages/branding/marketing/campaigns/promo",
+    }
     assert paths["references_dir"] == tmp_path / "packages/branding/marketing/references"
     assert paths["plans_dir"] == tmp_path / "packages/branding/marketing/plans"
     assert paths["asset_index"] == tmp_path / "packages/branding/marketing/asset-state.yaml"
     assert paths["accepted_state"] == tmp_path / "packages/branding/marketing/accepted.yaml"
     assert paths["directory_state_file"] == "asset-state.yaml"
+    assert paths["portfolios"]["release"] == {
+        "accepted": tmp_path / "packages/branding/marketing/portfolios/release/accepted.yaml",
+        "asset_state": tmp_path
+        / "packages/branding/marketing/portfolios/release/asset-state.yaml",
+        "patterns": tmp_path / "packages/branding/marketing/portfolios/release/patterns.md",
+    }
+    assert paths["portfolios"]["promo"] == {
+        "accepted": tmp_path / "packages/branding/marketing/portfolios/promo/accepted.yaml",
+        "asset_state": tmp_path
+        / "packages/branding/marketing/portfolios/promo/asset-state.yaml",
+        "patterns": tmp_path / "packages/branding/marketing/portfolios/promo/patterns.md",
+    }
 
 
 def test_default_project_paths_match_documented_layout(tmp_path: Path) -> None:
@@ -108,13 +128,28 @@ def test_default_project_paths_match_documented_layout(tmp_path: Path) -> None:
     paths = launcher.project_paths({}, tmp_path)
 
     assert paths["marketing_root"] == tmp_path / "assets/marketing"
-    assert paths["campaigns_dir"] == tmp_path / "assets/marketing/campaigns"
+    assert paths["campaigns_root"] == tmp_path / "assets/marketing/campaigns"
+    assert paths["campaigns_dir"] == tmp_path / "assets/marketing/campaigns/promo"
+    assert paths["campaign_dirs"] == {
+        "release": tmp_path / "assets/marketing/campaigns/release",
+        "promo": tmp_path / "assets/marketing/campaigns/promo",
+    }
     assert paths["references_dir"] == tmp_path / "assets/marketing/references"
     assert paths["plans_dir"] == tmp_path / "assets/marketing/plans"
     assert paths["asset_index"] == tmp_path / "assets/marketing/asset-state.yaml"
     assert paths["accepted_state"] == tmp_path / "assets/marketing/accepted.yaml"
     assert paths["scratch_dir"] == tmp_path / ".harness/marketing/out"
     assert paths["approved_dir"] == tmp_path / "public/marketing"
+    assert paths["portfolios"]["release"] == {
+        "accepted": tmp_path / "assets/marketing/portfolios/release/accepted.yaml",
+        "asset_state": tmp_path / "assets/marketing/portfolios/release/asset-state.yaml",
+        "patterns": tmp_path / "assets/marketing/portfolios/release/patterns.md",
+    }
+    assert paths["portfolios"]["promo"] == {
+        "accepted": tmp_path / "assets/marketing/portfolios/promo/accepted.yaml",
+        "asset_state": tmp_path / "assets/marketing/portfolios/promo/asset-state.yaml",
+        "patterns": tmp_path / "assets/marketing/portfolios/promo/patterns.md",
+    }
 
 
 def test_template_declares_org_brand_standard_without_required_brief() -> None:
@@ -134,6 +169,22 @@ def test_template_declares_org_brand_standard_without_required_brief() -> None:
     assert "accepted" not in data["brandStandard"]
     assert "assetState" not in data["brandStandard"]
     assert "campaign" not in data["brandStandard"]
+    assert data["campaigns"] == {
+        "release": "assets/marketing/campaigns/release",
+        "promo": "assets/marketing/campaigns/promo",
+    }
+    assert "campaigns" not in data["theme"]
+    assert data["campaign"]["path"] == "assets/marketing/campaigns/promo/launch.campaign.yaml"
+    assert data["portfolios"]["release"] == {
+        "accepted": "assets/marketing/portfolios/release/accepted.yaml",
+        "assetState": "assets/marketing/portfolios/release/asset-state.yaml",
+        "patterns": "assets/marketing/portfolios/release/patterns.md",
+    }
+    assert data["portfolios"]["promo"] == {
+        "accepted": "assets/marketing/portfolios/promo/accepted.yaml",
+        "assetState": "assets/marketing/portfolios/promo/asset-state.yaml",
+        "patterns": "assets/marketing/portfolios/promo/patterns.md",
+    }
 
 
 def test_project_root_option_anchors_metadata_relative_paths(tmp_path: Path) -> None:
@@ -150,8 +201,11 @@ project:
   marketingRoot: assets/marketing
 theme:
   path: assets/marketing/theme.md
+campaigns:
+  release: assets/marketing/campaigns/release
+  promo: assets/marketing/campaigns/promo
 campaign:
-  path: assets/marketing/campaigns/launch.campaign.yaml
+  path: assets/marketing/campaigns/promo/launch.campaign.yaml
 """.lstrip(),
         encoding="utf-8",
     )
@@ -164,7 +218,8 @@ campaign:
             str(project),
             "--metadata",
             str(metadata_path),
-            "plan",
+            "repo",
+            "paths",
         ],
         cwd=other_cwd,
         text=True,
@@ -190,7 +245,8 @@ def test_project_root_option_applies_without_metadata(tmp_path: Path) -> None:
             str(SCRIPT_PATH),
             "--project-root",
             str(project),
-            "plan",
+            "repo",
+            "paths",
         ],
         cwd=other_cwd,
         text=True,
@@ -252,6 +308,16 @@ def test_bootstrap_is_dry_run_until_write(
     marketing_root = tmp_path / "packages/branding/marketing"
     plans = tmp_path / "packages/branding/marketing/plans"
     accepted_parent = tmp_path / "packages/branding/marketing"
+    release_patterns = tmp_path / "packages/branding/marketing/portfolios/release/patterns.md"
+    promo_patterns = tmp_path / "packages/branding/marketing/portfolios/promo/patterns.md"
+    root_asset_state = tmp_path / "packages/branding/marketing/asset-state.yaml"
+    root_accepted = tmp_path / "packages/branding/marketing/accepted.yaml"
+    release_asset_state = (
+        tmp_path / "packages/branding/marketing/portfolios/release/asset-state.yaml"
+    )
+    release_accepted = tmp_path / "packages/branding/marketing/portfolios/release/accepted.yaml"
+    promo_asset_state = tmp_path / "packages/branding/marketing/portfolios/promo/asset-state.yaml"
+    promo_accepted = tmp_path / "packages/branding/marketing/portfolios/promo/accepted.yaml"
     scratch = tmp_path / "packages/branding/.harness/out"
 
     assert launcher.bootstrap_project([str(tmp_path)], meta, "marketing.harness.yaml") == 0
@@ -266,8 +332,351 @@ def test_bootstrap_is_dry_run_until_write(
     assert marketing_root.is_dir()
     assert plans.is_dir()
     assert accepted_parent.is_dir()
+    assert release_patterns.is_file()
+    assert promo_patterns.is_file()
+    assert root_asset_state.is_file()
+    assert root_accepted.is_file()
+    assert release_asset_state.is_file()
+    assert release_accepted.is_file()
+    assert promo_asset_state.is_file()
+    assert promo_accepted.is_file()
+    assert "release notes are the main subject" in release_patterns.read_text(encoding="utf-8")
     assert scratch.is_dir()
     assert "mode=write" in capsys.readouterr().out
+
+
+def test_consolidated_help_shows_repo_and_org_commands() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), "--help"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    assert "repo init" in completed.stdout
+    assert "repo gen release" in completed.stdout
+    assert "repo settle" in completed.stdout
+    assert "repo delete candidate" in completed.stdout
+    assert "org init" in completed.stdout
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "plan",
+        "check",
+        "bootstrap",
+        "state",
+        "validate",
+        "render",
+        "release-copy",
+        "release-campaign",
+        "release-render",
+        "producer-handoff",
+        "accept",
+        "asset-report",
+    ],
+)
+def test_legacy_top_level_commands_are_not_public(command: str) -> None:
+    completed = subprocess.run(
+        [sys.executable, str(SCRIPT_PATH), command],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode != 0
+    assert "use `repo ...` or `org ...`" in completed.stderr
+
+
+def test_repo_and_org_commands_dispatch_to_existing_helpers() -> None:
+    launcher = load_launcher()
+
+    assert launcher.repo_command(["state"], {}, None) == 0
+
+
+def test_repo_init_wraps_bootstrap(tmp_path: Path) -> None:
+    project = tmp_path / "product"
+    metadata_path = project / "marketing.harness.json"
+    project.mkdir()
+    metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "init",
+            "--write",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "mode=write" in completed.stdout
+    assert "packages/branding/marketing" in completed.stdout
+    assert (project / "packages/branding/marketing").is_dir()
+
+
+def test_check_harness_wrapper_uses_repo_check_with_project_python() -> None:
+    example = ROOT / "skills/brand-studio/examples/codefox"
+    completed = subprocess.run(
+        [
+            str(ROOT / "skills/brand-studio/scripts/check_harness.sh"),
+            "--project-root",
+            str(example),
+            "--metadata",
+            str(example / "marketing.harness.yaml"),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "launcher_ready=True" in completed.stdout
+
+
+def test_repo_gen_release_wraps_release_render(tmp_path: Path) -> None:
+    project = tmp_path
+    theme = project / "packages/branding/marketing/theme.md"
+    changelog = project / "packages/kobe/CHANGELOG.md"
+    metadata_path = project / "marketing.harness.json"
+    release_accepted = (
+        project / "packages/branding/marketing/portfolios/release/accepted.yaml"
+    )
+    promo_accepted = project / "packages/branding/marketing/portfolios/promo/accepted.yaml"
+    write_theme(theme)
+    changelog.parent.mkdir(parents=True)
+    release_accepted.parent.mkdir(parents=True)
+    promo_accepted.parent.mkdir(parents=True)
+    release_accepted.write_text('accepted:\n  - id: "release-prior"\n', encoding="utf-8")
+    promo_accepted.write_text('accepted:\n  - id: "promo-prior"\n', encoding="utf-8")
+    changelog.write_text(
+        """
+# Changelog
+
+## 0.7.43
+
+- Release workflow now has one command surface.
+""".lstrip(),
+        encoding="utf-8",
+    )
+    metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "gen",
+            "release",
+            "--changelog",
+            str(changelog),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "mode=gen-release" in completed.stdout
+    assert "release_source=changelog" in completed.stdout
+    assert "portfolio=release" in completed.stdout
+    producer_context = (
+        project / "packages/branding/.harness/out/release-v0-7-43/producer-context.json"
+    )
+    assert producer_context.is_file()
+    release_campaign = (
+        project
+        / "packages/branding/marketing/campaigns/release/release-v0-7-43.campaign.yaml"
+    )
+    promo_campaign = (
+        project
+        / "packages/branding/marketing/campaigns/promo/release-v0-7-43.campaign.yaml"
+    )
+    assert release_campaign.is_file()
+    assert not promo_campaign.exists()
+    context = json.loads(producer_context.read_text(encoding="utf-8"))
+    assert context["portfolio"]["domain"] == "release"
+    assert context["portfolio"]["accepted"] == str(release_accepted)
+    assert context["portfolio"]["asset_state"] == str(
+        project / "packages/branding/marketing/portfolios/release/asset-state.yaml"
+    )
+    assert "portfolios/promo" not in json.dumps(context)
+
+
+def test_repo_settle_wraps_accept_helper(tmp_path: Path) -> None:
+    project = tmp_path
+    metadata_path = project / "marketing.harness.json"
+    candidate = project / ".harness/marketing/out/launch/web-banner.png"
+    write_png(candidate, width=320, height=176)
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "project": {"id": "kobe", "root": str(project)},
+                "artifacts": {
+                    "scratch": ".harness/marketing/out",
+                    "approved": "public/marketing",
+                },
+                "state": {"accepted": "assets/marketing/accepted.yaml"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    checksum = file_sha256(candidate)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "settle",
+            "--campaign",
+            "launch",
+            "--asset-id",
+            "web-banner",
+            "--domain",
+            "promo",
+            "--source-kind",
+            "campaign-brief",
+            "--asset-type",
+            "hero",
+            "--style-family",
+            "screen-first-field-scene",
+            "--file",
+            str(candidate),
+            "--checksum-sha256",
+            checksum,
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "mode=settle" in completed.stdout
+    assert "accepted=true" in completed.stdout
+    assert (project / "public/marketing/launch/web-banner.png").is_file()
+
+
+def test_repo_delete_candidate_only_deletes_scratch_files(tmp_path: Path) -> None:
+    project = tmp_path
+    metadata_path = project / "marketing.harness.json"
+    candidate = project / ".harness/marketing/out/launch/web-banner.png"
+    approved = project / "public/marketing/launch/web-banner.png"
+    write_png(candidate, width=320, height=176)
+    write_png(approved, width=320, height=176)
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "project": {"id": "kobe", "root": str(project)},
+                "artifacts": {
+                    "scratch": ".harness/marketing/out",
+                    "approved": "public/marketing",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    deleted = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "delete",
+            "candidate",
+            "--file",
+            str(candidate),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    rejected = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "delete",
+            "candidate",
+            "--file",
+            str(approved),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert deleted.returncode == 0, deleted.stderr
+    assert "mode=delete-candidate" in deleted.stdout
+    assert "deleted=true" in deleted.stdout
+    assert not candidate.exists()
+    assert rejected.returncode == 1
+    assert "must be under artifacts.scratch" in rejected.stderr
+    assert approved.is_file()
+
+
+def test_org_init_is_dry_run_and_write_does_not_overwrite(tmp_path: Path) -> None:
+    project = tmp_path / "org-brand"
+    project.mkdir()
+    existing_standard = project / "public/brand/brand-standard.md"
+    existing_standard.parent.mkdir(parents=True)
+    existing_standard.write_text("# Existing Standard\n", encoding="utf-8")
+
+    dry_run = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--project-root",
+            str(project),
+            "org",
+            "init",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert dry_run.returncode == 0, dry_run.stderr
+    assert "mode=dry-run" in dry_run.stdout
+    assert "scope=org" in dry_run.stdout
+    assert not (project / "public/brand/theme.base.md").exists()
+
+    write = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--project-root",
+            str(project),
+            "org",
+            "init",
+            "--write",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert write.returncode == 0, write.stderr
+    assert "mode=write" in write.stdout
+    assert existing_standard.read_text(encoding="utf-8") == "# Existing Standard\n"
+    assert (project / "public/brand/theme.base.md").is_file()
+    assert (project / "public/brand/references").is_dir()
 
 
 def test_publish_is_not_a_user_facing_command() -> None:
@@ -288,11 +697,23 @@ def test_state_preflight_reads_repo_directory_and_related_state(tmp_path: Path) 
     related = tmp_path / "repo-b"
     accepted = project / "packages/branding/marketing/accepted.yaml"
     directory_state = project / "packages/branding/public/marketing/banner/asset-state.yaml"
+    release_accepted = (
+        project / "packages/branding/marketing/portfolios/release/accepted.yaml"
+    )
+    release_asset_state = (
+        project / "packages/branding/marketing/portfolios/release/asset-state.yaml"
+    )
+    release_patterns = project / "packages/branding/marketing/portfolios/release/patterns.md"
+    promo_accepted = project / "packages/branding/marketing/portfolios/promo/accepted.yaml"
+    promo_asset_state = project / "packages/branding/marketing/portfolios/promo/asset-state.yaml"
+    promo_patterns = project / "packages/branding/marketing/portfolios/promo/patterns.md"
     related_state = related / "packages/branding/marketing/accepted.yaml"
     metadata_path = project / "marketing.harness.yaml"
 
     accepted.parent.mkdir(parents=True)
     directory_state.parent.mkdir(parents=True)
+    release_accepted.parent.mkdir(parents=True)
+    promo_accepted.parent.mkdir(parents=True)
     related_state.parent.mkdir(parents=True)
     accepted.write_text(
         """
@@ -307,6 +728,44 @@ accepted:
 """.lstrip(),
         encoding="utf-8",
     )
+    release_accepted.write_text(
+        """
+schema_version: "1.0"
+accepted:
+  - id: "release-v0-7-45-poster-logfull"
+    domain: "release"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    release_asset_state.write_text(
+        """
+schema_version: "1.0"
+patterns:
+  - id: "release-log-full-editorial"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    release_patterns.write_text(
+        "- release notes are the main subject\n", encoding="utf-8"
+    )
+    promo_accepted.write_text(
+        """
+schema_version: "1.0"
+accepted:
+  - id: "mars-kobe"
+    domain: "promo"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    promo_asset_state.write_text(
+        """
+schema_version: "1.0"
+patterns:
+  - id: "screen-first-field-scene"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    promo_patterns.write_text("- screen-first field scene\n", encoding="utf-8")
     directory_state.write_text(
         """
 schema_version: "1.0"
@@ -345,8 +804,10 @@ organization:
   name: CodeFox Org
 theme:
   path: packages/branding/marketing/theme.md
-  campaigns: packages/branding/marketing/campaigns
   references: packages/branding/marketing/references
+campaigns:
+  release: packages/branding/marketing/campaigns/release
+  promo: packages/branding/marketing/campaigns/promo
 artifacts:
   scratch: packages/branding/.harness/out
   approved: packages/branding/public/marketing
@@ -382,6 +843,18 @@ sources:
     assert state_summaries["asset-state.yaml"]["pattern_count"] == 1
     assert snapshot["organization"]["id"] == "codefox-org"
     assert snapshot["theme"]["path"] == "packages/branding/marketing/theme.md"
+    assert snapshot["campaigns"]["release"] == str(
+        project / "packages/branding/marketing/campaigns/release"
+    )
+    assert snapshot["campaigns"]["promo"] == str(
+        project / "packages/branding/marketing/campaigns/promo"
+    )
+    assert snapshot["portfolios"]["release"]["accepted"]["summary"]["accepted_count"] == 1
+    assert snapshot["portfolios"]["release"]["asset_state"]["summary"]["pattern_count"] == 1
+    assert snapshot["portfolios"]["release"]["patterns"]["exists"] is True
+    assert snapshot["portfolios"]["promo"]["accepted"]["summary"]["accepted_count"] == 1
+    assert snapshot["portfolios"]["promo"]["asset_state"]["summary"]["pattern_count"] == 1
+    assert snapshot["portfolios"]["promo"]["patterns"]["exists"] is True
     assert snapshot["related_repos"][0]["state_summary"]["accepted_count"] == 1
     assert any("accepted.yaml" in path for path in snapshot["read_before_production"])
 
@@ -389,7 +862,7 @@ sources:
 def test_render_dry_run_uses_bundled_scripts(tmp_path: Path) -> None:
     project = tmp_path
     theme = project / "packages/branding/marketing/theme.md"
-    campaign = project / "packages/branding/marketing/campaigns/launch.campaign.yaml"
+    campaign = project / "packages/branding/marketing/campaigns/promo/launch.campaign.yaml"
     metadata_path = project / "marketing.harness.json"
     theme.parent.mkdir(parents=True)
     campaign.parent.mkdir(parents=True)
@@ -452,6 +925,7 @@ deliverables:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
+            "repo",
             "render",
             "--dry-run",
         ],
@@ -538,7 +1012,8 @@ alias:
     metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
 
     generated_campaign = (
-        project / "packages/branding/marketing/campaigns/release-v0-7-33.campaign.yaml"
+        project
+        / "packages/branding/marketing/campaigns/release/release-v0-7-33.campaign.yaml"
     )
     copy_path = project / "packages/branding/.harness/out/release-v0-7-33/copy.yaml"
     copy = subprocess.run(
@@ -547,7 +1022,9 @@ alias:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "release-copy",
+            "repo",
+            "release",
+            "copy",
             "--write",
         ],
         text=True,
@@ -593,7 +1070,9 @@ alias:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "release-render",
+            "repo",
+            "gen",
+            "release",
         ],
         text=True,
         capture_output=True,
@@ -733,7 +1212,9 @@ alias:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "release-copy",
+            "repo",
+            "release",
+            "copy",
             "--write",
             "--releases",
             "4",
@@ -764,7 +1245,9 @@ alias:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "release-render",
+            "repo",
+            "gen",
+            "release",
             "--force",
             "--releases",
             "4",
@@ -852,7 +1335,9 @@ def test_release_copy_ignores_sandbox_worktree_and_node_modules_changelogs(
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "release-copy",
+            "repo",
+            "release",
+            "copy",
             "--write",
             "--releases",
             "4",
@@ -960,7 +1445,9 @@ sources: []
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "release-render",
+            "repo",
+            "gen",
+            "release",
             "--copy",
             str(copy_path),
         ],
@@ -976,7 +1463,7 @@ sources: []
 def test_gpt_image_constraints_reject_unaligned_deliverable_size(tmp_path: Path) -> None:
     project = tmp_path
     theme = project / "assets/marketing/theme.md"
-    campaign = project / "assets/marketing/campaigns/launch.campaign.yaml"
+    campaign = project / "assets/marketing/campaigns/promo/launch.campaign.yaml"
     metadata_path = project / "marketing.harness.json"
     write_theme(theme, producer_id="gpt-image")
     campaign.parent.mkdir(parents=True)
@@ -1004,10 +1491,15 @@ deliverables:
                     },
                 "theme": {
                     "path": "assets/marketing/theme.md",
-                    "campaigns": "assets/marketing/campaigns",
                     "references": "assets/marketing/references",
                 },
-                "campaign": {"path": "assets/marketing/campaigns/launch.campaign.yaml"},
+                "campaigns": {
+                    "release": "assets/marketing/campaigns/release",
+                    "promo": "assets/marketing/campaigns/promo",
+                },
+                "campaign": {
+                    "path": "assets/marketing/campaigns/promo/launch.campaign.yaml"
+                },
                 "skills": {"image": "gpt-image"},
             }
         ),
@@ -1020,6 +1512,7 @@ deliverables:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
+            "repo",
             "validate",
         ],
         text=True,
@@ -1081,7 +1574,8 @@ def test_producer_handoff_reports_target_prompt_and_not_generated(tmp_path: Path
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "producer-handoff",
+            "repo",
+            "handoff",
             "--campaign",
             "release-v0-7-43",
             "--asset-id",
@@ -1093,7 +1587,7 @@ def test_producer_handoff_reports_target_prompt_and_not_generated(tmp_path: Path
     )
 
     assert completed.returncode == 0, completed.stderr
-    assert "mode=producer-handoff" in completed.stdout
+    assert "mode=handoff" in completed.stdout
     assert "producer_skill=gpt-image" in completed.stdout
     assert "asset_id=release-card" in completed.stdout
     assert "size=1200x640" in completed.stdout
@@ -1131,7 +1625,8 @@ def test_asset_report_reports_scratch_file_metadata(tmp_path: Path) -> None:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "asset-report",
+            "repo",
+            "report",
             "--file",
             str(candidate),
         ],
@@ -1141,7 +1636,7 @@ def test_asset_report_reports_scratch_file_metadata(tmp_path: Path) -> None:
     )
 
     assert completed.returncode == 0, completed.stderr
-    assert "mode=asset-report" in completed.stdout
+    assert "mode=report" in completed.stdout
     assert f"file={candidate}" in completed.stdout
     assert "corpus=scratch" in completed.stdout
     assert "accepted=false" in completed.stdout
@@ -1189,7 +1684,8 @@ accepted:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "asset-report",
+            "repo",
+            "report",
             "--file",
             str(approved),
         ],
@@ -1204,6 +1700,66 @@ accepted:
     assert "campaign=launch" in completed.stdout
     assert "asset_id=web-banner" in completed.stdout
     assert f"checksum_sha256={checksum}" in completed.stdout
+
+
+def test_asset_report_reads_portfolio_accepted_state(tmp_path: Path) -> None:
+    project = tmp_path
+    metadata_path = project / "marketing.harness.json"
+    approved = project / "public/marketing/release-v0-7-45/release-poster.png"
+    accepted_state = project / "assets/marketing/portfolios/release/accepted.yaml"
+    write_png(approved, width=1088, height=1920)
+    checksum = file_sha256(approved)
+    accepted_state.parent.mkdir(parents=True)
+    accepted_state.write_text(
+        f"""
+schema_version: "1.0"
+accepted:
+  - campaign: "release-v0-7-45"
+    asset_id: "release-poster"
+    domain: "release"
+    path: "public/marketing/release-v0-7-45/release-poster.png"
+    checksum_sha256: "{checksum}"
+""".lstrip(),
+        encoding="utf-8",
+    )
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "project": {
+                    "id": "kobe",
+                    "root": str(project),
+                    "marketingRoot": "assets/marketing",
+                },
+                "artifacts": {
+                    "scratch": ".harness/marketing/out",
+                    "approved": "public/marketing",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "report",
+            "--file",
+            str(approved),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "corpus=approved" in completed.stdout
+    assert "accepted=true" in completed.stdout
+    assert "campaign=release-v0-7-45" in completed.stdout
+    assert "asset_id=release-poster" in completed.stdout
 
 
 def test_accept_helper_copies_candidate_and_updates_manifest_and_state(tmp_path: Path) -> None:
@@ -1256,7 +1812,8 @@ def test_accept_helper_copies_candidate_and_updates_manifest_and_state(tmp_path:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "accept",
+            "repo",
+            "settle",
             "--campaign",
             "launch",
             "--asset-id",
@@ -1283,6 +1840,7 @@ def test_accept_helper_copies_candidate_and_updates_manifest_and_state(tmp_path:
     assert "corpus=approved" in completed.stdout
     assert "mime_type=image/png" in completed.stdout
     assert "size=320x176" in completed.stdout
+    assert "domain=promo" in completed.stdout
     approved_file = project / "public/marketing/launch/web-banner.png"
     approved_manifest = project / "public/marketing/launch/manifest.json"
     assert approved_file.is_file()
@@ -1297,13 +1855,85 @@ def test_accept_helper_copies_candidate_and_updates_manifest_and_state(tmp_path:
     accepted = (project / "assets/marketing/accepted.yaml").read_text(encoding="utf-8")
     assert 'owner_kind: "repo"' not in accepted
     assert 'kind: "repo"' in accepted
+    assert 'domain: "promo"' in accepted
+    assert 'source_kind: "campaign-brief"' in accepted
+    assert 'asset_type: "hero"' in accepted
+    assert 'style_family: "screen-first-field-scene"' in accepted
     assert 'asset_id: "web-banner"' in accepted
     assert 'path: "public/marketing/launch/web-banner.png"' in accepted
     assert f'checksum_sha256: "{checksum}"' in accepted
     assert 'status: "accepted"' in plan.read_text(encoding="utf-8")
-    asset_state = (project / "assets/marketing/asset-state.yaml").read_text(encoding="utf-8")
+    portfolio_accepted = (
+        project / "assets/marketing/portfolios/promo/accepted.yaml"
+    ).read_text(encoding="utf-8")
+    assert 'domain: "promo"' in portfolio_accepted
+    assert 'style_family: "screen-first-field-scene"' in portfolio_accepted
+    asset_state = (
+        project / "assets/marketing/portfolios/promo/asset-state.yaml"
+    ).read_text(encoding="utf-8")
     assert 'id: "launch-web-banner"' in asset_state
     assert 'path: "public/marketing/launch/web-banner.png"' in asset_state
+
+
+def test_accept_helper_defaults_release_assets_to_release_portfolio(tmp_path: Path) -> None:
+    project = tmp_path
+    metadata_path = project / "marketing.harness.json"
+    candidate = (
+        project
+        / ".harness/marketing/out/release-v0-7-45/release-v0-7-45-poster-logfull.png"
+    )
+    write_png(candidate, width=1088, height=1920)
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "project": {
+                    "id": "kobe",
+                    "root": str(project),
+                    "marketingRoot": "assets/marketing",
+                },
+                "artifacts": {
+                    "scratch": ".harness/marketing/out",
+                    "approved": "public/marketing",
+                },
+                "state": {"accepted": "assets/marketing/accepted.yaml"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "settle",
+            "--campaign",
+            "release-v0-7-45",
+            "--asset-id",
+            "release-v0-7-45-poster-logfull",
+            "--file",
+            str(candidate),
+            "--checksum-sha256",
+            file_sha256(candidate),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "domain=release" in completed.stdout
+    accepted = (
+        project / "assets/marketing/portfolios/release/accepted.yaml"
+    ).read_text(encoding="utf-8")
+    assert 'id: "release-v0-7-45-release-v0-7-45-poster-logfull"' in accepted
+    assert 'domain: "release"' in accepted
+    assert 'source_kind: "changelog"' in accepted
+    assert 'asset_type: "release-poster"' in accepted
+    assert 'style_family: "log-full-editorial"' in accepted
+    assert not (project / "assets/marketing/portfolios/promo/accepted.yaml").exists()
 
 
 def test_accept_helper_rejects_checksum_mismatch(tmp_path: Path) -> None:
@@ -1335,7 +1965,8 @@ def test_accept_helper_rejects_checksum_mismatch(tmp_path: Path) -> None:
             str(SCRIPT_PATH),
             "--metadata",
             str(metadata_path),
-            "accept",
+            "repo",
+            "settle",
             "--campaign",
             "launch",
             "--asset-id",

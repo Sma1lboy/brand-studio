@@ -22,8 +22,11 @@ brandStandard:
 
 theme:
   path: assets/marketing/theme.md
-  campaigns: assets/marketing/campaigns
   references: assets/marketing/references
+
+campaigns:
+  release: assets/marketing/campaigns/release
+  promo: assets/marketing/campaigns/promo
 
 skills:
   # Bind each capability to a locally installed producer skill (by name).
@@ -36,7 +39,7 @@ skills:
 
 campaign:
   name: launch
-  path: assets/marketing/campaigns/launch.campaign.yaml
+  path: assets/marketing/campaigns/promo/launch.campaign.yaml
 
 artifacts:
   scratch: .harness/marketing/out
@@ -47,6 +50,16 @@ state:
   assetIndex: assets/marketing/asset-state.yaml
   accepted: assets/marketing/accepted.yaml
   directoryStateFile: asset-state.yaml
+
+portfolios:
+  release:
+    accepted: assets/marketing/portfolios/release/accepted.yaml
+    assetState: assets/marketing/portfolios/release/asset-state.yaml
+    patterns: assets/marketing/portfolios/release/patterns.md
+  promo:
+    accepted: assets/marketing/portfolios/promo/accepted.yaml
+    assetState: assets/marketing/portfolios/promo/asset-state.yaml
+    patterns: assets/marketing/portfolios/promo/patterns.md
 
 sources:
   assetRoots:

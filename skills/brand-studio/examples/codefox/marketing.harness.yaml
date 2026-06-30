@@ -15,8 +15,11 @@ skillDistribution:
 
 theme:
   path: packages/branding/marketing/theme.md
-  campaigns: packages/branding/marketing/campaigns
   references: packages/branding/marketing/references
+
+campaigns:
+  release: packages/branding/marketing/campaigns/release
+  promo: packages/branding/marketing/campaigns/promo
 
 skills:
   # Each capability binds to a locally installed producer skill by name.
@@ -25,7 +28,7 @@ skills:
 
 campaign:
   name: example
-  path: packages/branding/marketing/campaigns/example.campaign.yaml
+  path: packages/branding/marketing/campaigns/promo/example.campaign.yaml
 
 artifacts:
   scratch: packages/branding/.harness/out

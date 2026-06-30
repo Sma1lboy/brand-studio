@@ -70,9 +70,9 @@ derive the initial palette, typography direction, visual language, avoid list,
 and style aliases. If no images are attached, it scans the declared asset roots
 once for image files instead of requiring a separate init-assets path or role
 schema. It writes `marketing.harness.yaml`, `assets/marketing/brief.md`,
-`assets/marketing/theme.md`, a preview campaign, and initial state files, then
-runs the existing launcher for validation and dry-run rendering. The harness
-itself does not analyze images or call vision APIs.
+`assets/marketing/theme.md`, a promo preview campaign, and initial state files,
+then runs the existing launcher for validation and dry-run rendering. The
+harness itself does not analyze images or call vision APIs.
 
 The installed skill contains a launcher:
 
@@ -95,6 +95,8 @@ a hard-coded root layout. One common shape is:
 assets/marketing/
   theme.md
   campaigns/
+    release/
+    promo/
   references/
   proposals/
   plans/
@@ -109,6 +111,8 @@ public/marketing/
 
 - `project.marketingRoot` is editable source input: theme notes, campaign YAML,
   proposals, references, and accepted-work notes.
+- `campaigns.release` and `campaigns.promo` keep release-note campaigns
+  separate from normal promotional campaigns.
 - `artifacts.scratch` is the local render buffer.
 - `artifacts.approved` is the reviewed asset path, asset repo, or submodule target.
 - `state.assetIndex` is the repo-level visual asset memory.
@@ -196,7 +200,7 @@ exact files or asset ids.
 uv run ruff check .
 uv run pytest
 cd skills/brand-studio/examples/codefox
-uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml validate
+uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml repo validate
 ```
 
 Use the checked-in skill payload directly through a fork, submodule, or local

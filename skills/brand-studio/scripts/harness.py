@@ -23,6 +23,11 @@ VALUE_FLAGS = {
 DEFAULT_MARKETING_ROOT = "assets/marketing"
 DEFAULT_SCRATCH_DIR = ".harness/marketing/out"
 DEFAULT_APPROVED_DIR = "public/marketing"
+PORTFOLIO_DOMAINS = ("release", "promo")
+# Fallbacks used only when metadata.brandStandard.* is absent.
+FALLBACK_ORG_BRAND_STANDARD = "public/brand/brand-standard.md"
+FALLBACK_ORG_THEME_BASE = "public/brand/theme.base.md"
+FALLBACK_ORG_REFERENCES = "public/brand/references"
 DEFAULT_RELEASE_STYLE = "launch-hero"
 DEFAULT_RELEASE_DELIVERABLES = [
     ("release-card", (1200, 640)),
@@ -76,55 +81,133 @@ def main() -> int:
             Path(project_root_value).expanduser().resolve()
         )
 
-    if args[:1] == ["plan"]:
+    if not args or args[0] in {"-h", "--help"}:
+        print_harness_help()
+        return 0
+
+    if args[0] == "org":
+        return org_command(args[1:], metadata, metadata_path)
+    if args[0] == "repo":
+        return repo_command(args[1:], metadata, metadata_path)
+
+    print(
+        f"unknown command: {args[0]}; use `repo ...` or `org ...`",
+        file=sys.stderr,
+    )
+    return 2
+
+
+def bundled_cli_command() -> list[str]:
+    return [sys.executable, str(Path(__file__).resolve().parent / "cli.py")]
+
+
+def print_harness_help() -> None:
+    print(
+        """
+usage: harness.py [--project-root DIR] [--metadata FILE] <command> [options]
+
+Canonical Brand Studio commands:
+  org init [--write] [target-dir]
+  repo init [--write] [--with-example] [target-dir]
+  repo paths
+  repo check
+  repo state [--compact] [target-dir]
+  repo validate
+  repo render --dry-run
+  repo release copy [--write] [--releases N]
+  repo release campaign [--write]
+  repo gen release [--changelog FILE] [--releases N]
+  repo handoff --campaign NAME --asset-id ID
+  repo settle --campaign NAME --asset-id ID --file FILE [--checksum-sha256 SHA256]
+  repo report --file FILE
+  repo delete candidate --file FILE
+""".strip()
+    )
+
+
+def org_command(
+    args: list[str],
+    metadata: dict[str, Any],
+    metadata_path: str | None,
+) -> int:
+    if not args or args[0] in {"-h", "--help"}:
+        print("usage: harness.py org init [--write] [target-dir]")
+        return 0
+    if args[0] == "init":
+        return org_init(args[1:], metadata, metadata_path)
+    print(f"unknown org command: {' '.join(args)}", file=sys.stderr)
+    return 2
+
+
+def repo_command(
+    args: list[str],
+    metadata: dict[str, Any],
+    metadata_path: str | None,
+) -> int:
+    if not args or args[0] in {"-h", "--help"}:
+        print(
+            "usage: harness.py repo "
+            "{init,paths,check,state,validate,render,release,gen,handoff,settle,report,delete} ..."
+        )
+        return 0
+    command_name = args[0]
+    rest = args[1:]
+    if command_name == "init":
+        return bootstrap_project(rest, metadata, metadata_path)
+    if command_name == "paths":
         print_plan(metadata)
         return 0
+    if command_name == "check":
+        return check_project(rest, metadata, metadata_path)
+    if command_name == "state":
+        return print_state(rest, metadata, metadata_path)
+    if command_name in {"validate", "render"}:
+        return run_repo_render_command([command_name, *rest], metadata)
+    if command_name == "release":
+        return repo_release_command(rest, metadata, metadata_path)
+    if command_name == "gen" and rest[:1] == ["release"]:
+        return release_render(rest[1:], metadata, metadata_path)
+    if command_name == "handoff":
+        return producer_handoff(rest, metadata, metadata_path)
+    if command_name == "settle":
+        return accept_asset(rest, metadata, metadata_path)
+    if command_name == "report":
+        return asset_report(rest, metadata, metadata_path)
+    if command_name == "delete" and rest[:1] == ["candidate"]:
+        return delete_candidate(rest[1:], metadata, metadata_path)
+    print(f"unknown repo command: {' '.join(args)}", file=sys.stderr)
+    return 2
 
-    if args[:1] == ["state"]:
-        return print_state(args[1:], metadata, metadata_path)
 
-    if args[:1] == ["check"]:
-        return check_project(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["bootstrap"]:
-        return bootstrap_project(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["accept"]:
-        return accept_asset(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["asset-report"]:
-        return asset_report(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["producer-handoff"]:
-        return producer_handoff(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["release-campaign"]:
-        return release_campaign(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["release-copy"]:
-        return release_copy(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["release-render"]:
-        return release_render(args[1:], metadata, metadata_path)
-
-    if args[:1] == ["--resolve"]:
-        resolution = bundled_cli_command()
-        print(" ".join(shell_quote(part) for part in resolution))
+def repo_release_command(
+    args: list[str],
+    metadata: dict[str, Any],
+    metadata_path: str | None,
+) -> int:
+    if not args or args[0] in {"-h", "--help"}:
+        print("usage: harness.py repo release {copy,campaign,render} ...")
         return 0
+    command_name = args[0]
+    rest = args[1:]
+    if command_name == "copy":
+        return release_copy(rest, metadata, metadata_path)
+    if command_name == "campaign":
+        return release_campaign(rest, metadata, metadata_path)
+    if command_name == "render":
+        return release_render(rest, metadata, metadata_path)
+    print(f"unknown repo release command: {' '.join(args)}", file=sys.stderr)
+    return 2
 
+
+def run_repo_render_command(args: list[str], metadata: dict[str, Any]) -> int:
     command_args = apply_metadata_args(args, metadata)
     constraint_errors = producer_constraint_errors(command_args, metadata)
     if constraint_errors:
         for error in constraint_errors:
             print(error, file=sys.stderr)
         return 1
-    command = bundled_cli_command()
-    completed = subprocess.run([*command, *command_args], check=False)
+    completed = subprocess.run([*bundled_cli_command(), *command_args], check=False)
     return completed.returncode
-
-
-def bundled_cli_command() -> list[str]:
-    return [sys.executable, str(Path(__file__).resolve().parent / "cli.py")]
 
 
 def apply_metadata_args(args: list[str], metadata: dict[str, Any]) -> list[str]:
@@ -164,12 +247,12 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
             with_example = True
         elif token in {"-h", "--help"}:
             print(
-                "usage: harness.py bootstrap [--metadata FILE] "
+                "usage: harness.py repo init "
                 "[--write] [--with-example] [target-dir]"
             )
             return 0
         elif token.startswith("-"):
-            raise SystemExit(f"unknown bootstrap option: {token}")
+            raise SystemExit(f"unknown repo init option: {token}")
         else:
             target = token
 
@@ -177,7 +260,9 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
     plan = project_paths(metadata, project_root)
     dirs = [
         plan["marketing_root"],
+        plan["campaigns_root"],
         plan["campaigns_dir"],
+        *plan["campaign_dirs"].values(),
         plan["references_dir"],
         plan["plans_dir"],
         plan["asset_index"].parent,
@@ -185,10 +270,20 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
         plan["approved_dir"],
         plan["accepted_state"].parent,
     ]
+    for portfolio in plan["portfolios"].values():
+        dirs.extend(
+            [
+                portfolio["accepted"].parent,
+                portfolio["asset_state"].parent,
+                portfolio["patterns"].parent,
+            ]
+        )
 
     if write:
-        for directory in dirs:
+        for directory in unique_paths(dirs):
             directory.mkdir(parents=True, exist_ok=True)
+        write_initial_state_files(plan, project_root, metadata)
+        write_default_portfolio_patterns(plan["portfolios"])
         if with_example:
             copy_example(plan["marketing_root"])
 
@@ -198,14 +293,19 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
             "metadata": metadata_path or "",
             "project_root": project_root,
             "marketing_root": plan["marketing_root"],
+            "campaigns_root": plan["campaigns_root"],
             "campaigns_dir": plan["campaigns_dir"],
+            "release_campaigns_dir": plan["campaign_dirs"]["release"],
+            "promo_campaigns_dir": plan["campaign_dirs"]["promo"],
             "references_dir": plan["references_dir"],
             "plans_dir": plan["plans_dir"],
             "asset_index": plan["asset_index"],
             "scratch_dir": plan["scratch_dir"],
             "approved_dir": plan["approved_dir"],
             "accepted_state": plan["accepted_state"],
-            "created": " ".join(str(path) for path in dirs) if write else "",
+            "release_portfolio": plan["portfolios"]["release"]["accepted"].parent,
+            "promo_portfolio": plan["portfolios"]["promo"]["accepted"].parent,
+            "created": " ".join(str(path) for path in unique_paths(dirs)) if write else "",
             "copied_example": str(plan["marketing_root"] / "examples" / "codefox")
             if write and with_example
             else "",
@@ -219,11 +319,228 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
     return 0
 
 
+def write_initial_state_files(
+    plan: dict[str, Any],
+    project_root: Path,
+    metadata: dict[str, Any],
+) -> None:
+    owner = {"kind": "repo", "id": string_at(metadata, "project", "id") or project_root.name}
+    state_files = [
+        (
+            plan["asset_index"],
+            {
+                "schema_version": "1.0",
+                "owner": owner,
+                "revision": 0,
+                "assets": [],
+                "patterns": [],
+            },
+        ),
+        (
+            plan["accepted_state"],
+            {
+                "schema_version": "1.0",
+                "owner": owner,
+                "revision": 0,
+                "accepted": [],
+            },
+        ),
+    ]
+    for domain, portfolio in plan["portfolios"].items():
+        state_files.extend(
+            [
+                (
+                    portfolio["accepted"],
+                    {
+                        "schema_version": "1.0",
+                        "owner": owner,
+                        "domain": domain,
+                        "revision": 0,
+                        "accepted": [],
+                    },
+                ),
+                (
+                    portfolio["asset_state"],
+                    {
+                        "schema_version": "1.0",
+                        "owner": owner,
+                        "domain": domain,
+                        "revision": 0,
+                        "assets": [],
+                        "patterns": [],
+                    },
+                ),
+            ]
+        )
+    for path, content in state_files:
+        if path.exists():
+            continue
+        write_yaml_mapping(path, content)
+
+
+def write_default_portfolio_patterns(portfolios: dict[str, dict[str, Path]]) -> None:
+    templates = {
+        "release": """# Release Portfolio Patterns
+
+patterns:
+  - id: release-log-full-editorial
+    rules:
+      - release notes are the main subject
+      - use changelog/release structure as factual source
+      - prefer unified archive/poster layout
+      - no screenshots unless explicitly requested
+      - no app UI container
+      - no campaign scene
+      - high text clarity over visual drama
+""",
+        "promo": """# Promo Portfolio Patterns
+
+patterns:
+  - id: screen-first-field-scene
+    rules:
+      - use campaign brief and references as factual source
+      - prefer product-forward promotional composition
+      - do not inherit release-note poster composition by default
+""",
+    }
+    for domain, portfolio in portfolios.items():
+        path = portfolio["patterns"]
+        if path.exists():
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(templates.get(domain, "# Portfolio Patterns\n"), encoding="utf-8")
+
+
+def org_init(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    write = False
+    target = "."
+    remaining = list(args)
+    while remaining:
+        token = remaining.pop(0)
+        if token == "--write":
+            write = True
+        elif token == "--dry-run":
+            write = False
+        elif token in {"-h", "--help"}:
+            print("usage: harness.py org init [--write] [target-dir]")
+            return 0
+        elif token.startswith("-"):
+            raise SystemExit(f"unknown org init option: {token}")
+        else:
+            target = token
+
+    project_root = project_root_for(metadata, fallback=Path(target).resolve())
+    paths = org_brand_paths(metadata, project_root)
+    created: list[Path] = []
+    existing: list[Path] = []
+
+    if write:
+        if paths["references"].exists():
+            existing.append(paths["references"])
+        else:
+            created.append(paths["references"])
+        paths["references"].mkdir(parents=True, exist_ok=True)
+        for key, content in (
+            ("brand_standard", org_brand_standard_template(project_root)),
+            ("theme_base", org_theme_base_template(project_root)),
+        ):
+            path = paths[key]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists():
+                existing.append(path)
+                continue
+            path.write_text(content, encoding="utf-8")
+            created.append(path)
+    else:
+        existing = [path for path in paths.values() if path.exists()]
+
+    print_kv(
+        {
+            "mode": "write" if write else "dry-run",
+            "scope": "org",
+            "metadata": metadata_path or "",
+            "project_root": project_root,
+            "brand_standard": paths["brand_standard"],
+            "theme_base": paths["theme_base"],
+            "references": paths["references"],
+            "created": " ".join(str(path) for path in unique_paths(created)) if write else "",
+            "existing": " ".join(str(path) for path in unique_paths(existing)),
+            "next": (
+                "add references, then update brand-standard.md and "
+                "theme.base.md with agent-reviewed brand direction"
+            ),
+        }
+    )
+    if not write:
+        print("dry_run_note=pass --write to create missing org brand files")
+    return 0
+
+
+def delete_candidate(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    usage = "usage: harness.py repo delete candidate --file FILE"
+    file_value: str | None = None
+    remaining = list(args)
+    while remaining:
+        token = remaining.pop(0)
+        if token == "--file":
+            if not remaining:
+                print("--file requires a value", file=sys.stderr)
+                return 1
+            file_value = remaining.pop(0)
+        elif token.startswith("--file="):
+            file_value = token.split("=", 1)[1]
+        elif token in {"-h", "--help"}:
+            print(usage)
+            return 0
+        elif token.startswith("-"):
+            print(f"unknown delete candidate option: {token}", file=sys.stderr)
+            return 1
+        else:
+            print(f"unexpected delete candidate argument: {token}", file=sys.stderr)
+            return 1
+    if not file_value:
+        print("delete candidate requires --file", file=sys.stderr)
+        return 1
+
+    project_root = project_root_for(metadata)
+    paths = project_paths(metadata, project_root)
+    candidate = Path(resolve_project_path(project_root, file_value))
+    scratch_dir = paths["scratch_dir"].resolve()
+    try:
+        candidate.resolve().relative_to(scratch_dir)
+    except ValueError:
+        print(
+            f"{candidate}: delete candidate file must be under artifacts.scratch "
+            f"({scratch_dir})",
+            file=sys.stderr,
+        )
+        return 1
+    if not candidate.is_file():
+        print(f"{candidate}: candidate file not found", file=sys.stderr)
+        return 1
+
+    checksum = checksum_path(candidate)
+    candidate.unlink()
+    print_kv(
+        {
+            "mode": "delete-candidate",
+            "metadata": metadata_path or "",
+            "project_root": project_root,
+            "file": candidate,
+            "scratch_dir": scratch_dir,
+            "deleted": "true",
+            "checksum_sha256": checksum,
+        }
+    )
+    return 0
+
+
 def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py accept --metadata FILE --campaign NAME --asset-id ID "
-        "--file FILE [--checksum-sha256 SHA256] [--notes TEXT] [--tags a,b] "
-        "[--plan FILE] [--update-asset-state]"
+        "usage: harness.py repo settle --campaign NAME --asset-id ID "
+        "--file FILE [--domain release|promo] [--source-kind KIND] "
+        "[--asset-type TYPE] [--style-family NAME] [--checksum-sha256 SHA256] "
+        "[--notes TEXT] [--tags a,b] [--plan FILE] [--update-asset-state]"
     )
     options = parse_accept_options(args, usage)
     if isinstance(options, str):
@@ -264,6 +581,11 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
     campaign = str(options["campaign"])
     asset_id = str(options["asset_id"])
+    domain = accepted_domain(str(options.get("domain") or ""), campaign)
+    if not domain:
+        print("--domain must be release or promo", file=sys.stderr)
+        return 1
+    portfolio = paths["portfolios"][domain]
     run_lock = candidate.parent / "run.lock.json"
     expected_size = expected_asset_size(run_lock, asset_id)
     if expected_size and metadata_result["size"] != expected_size:
@@ -309,11 +631,16 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
         metadata=metadata_result,
         notes=str(options.get("notes") or ""),
         tags=accept_tags(str(options.get("tags") or ""), campaign, asset_id),
+        domain=domain,
+        source_kind=accepted_source_kind(domain, str(options.get("source_kind") or "")),
+        asset_type=accepted_asset_type(domain, asset_id, str(options.get("asset_type") or "")),
+        style_family=accepted_style_family(domain, str(options.get("style_family") or "")),
     )
     upsert_accepted_entry(accepted_path, accepted_entry, project_root)
+    upsert_accepted_entry(portfolio["accepted"], accepted_entry, project_root)
 
     if options["update_asset_state"]:
-        upsert_asset_state(paths["asset_index"], accepted_entry, project_root)
+        upsert_asset_state(portfolio["asset_state"], accepted_entry, project_root)
 
     plan_value = options.get("plan")
     if plan_value:
@@ -321,7 +648,7 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
     print_kv(
         {
-            "mode": "accept",
+            "mode": "settle",
             "metadata": metadata_path or "",
             "project_root": project_root,
             "campaign": campaign,
@@ -330,8 +657,15 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
             "approved": approved_file,
             "manifest": manifest_path,
             "accepted_state": accepted_path,
+            "portfolio": domain,
+            "portfolio_accepted": portfolio["accepted"],
+            "portfolio_asset_state": portfolio["asset_state"],
             "corpus": "approved",
             "accepted": "true",
+            "domain": domain,
+            "source_kind": accepted_entry["source_kind"],
+            "asset_type": accepted_entry["asset_type"],
+            "style_family": accepted_entry["style_family"],
             "mime_type": metadata_result["mime_type"],
             "size": size_text(metadata_result["size"]),
             "checksum_sha256": actual_checksum,
@@ -342,7 +676,7 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
 def asset_report(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py asset-report --metadata FILE --file FILE "
+        "usage: harness.py repo report --file FILE "
         "[--campaign NAME] [--asset-id ID]"
     )
     options = parse_asset_report_options(args, usage)
@@ -376,7 +710,7 @@ def asset_report(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
 def producer_handoff(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py producer-handoff --metadata FILE --campaign NAME "
+        "usage: harness.py repo handoff --campaign NAME "
         "--asset-id ID [--context FILE]"
     )
     options = parse_producer_handoff_options(args, usage)
@@ -443,7 +777,7 @@ def producer_handoff(args: list[str], metadata: dict[str, Any], metadata_path: s
 
     print_kv(
         {
-            "mode": "producer-handoff",
+            "mode": "handoff",
             "metadata": metadata_path or "",
             "project_root": project_root,
             "campaign": campaign,
@@ -472,12 +806,20 @@ def parse_accept_options(args: list[str], usage: str) -> dict[str, Any] | str:
         "notes": "",
         "tags": "",
         "plan": "",
+        "domain": "",
+        "source_kind": "",
+        "asset_type": "",
+        "style_family": "",
         "update_asset_state": False,
     }
     value_options = {
         "--campaign": "campaign",
         "--asset-id": "asset_id",
         "--file": "file",
+        "--domain": "domain",
+        "--source-kind": "source_kind",
+        "--asset-type": "asset_type",
+        "--style-family": "style_family",
         "--checksum-sha256": "checksum_sha256",
         "--notes": "notes",
         "--tags": "tags",
@@ -506,16 +848,18 @@ def parse_accept_options(args: list[str], usage: str) -> dict[str, Any] | str:
         if matched:
             continue
         if token.startswith("-"):
-            return f"unknown accept option: {token}"
+            return f"unknown repo settle option: {token}"
         return usage
 
     for key in ("campaign", "asset_id", "file"):
         if not options[key]:
-            return f"accept requires --{key.replace('_', '-')}"
+            return f"repo settle requires --{key.replace('_', '-')}"
     if options["checksum_sha256"] and not re.fullmatch(
         r"[0-9a-fA-F]{64}", options["checksum_sha256"]
     ):
         return "--checksum-sha256 must be a 64-character hex digest"
+    if options["domain"] and options["domain"] not in PORTFOLIO_DOMAINS:
+        return "--domain must be release or promo"
     return options
 
 
@@ -523,7 +867,7 @@ def parse_asset_report_options(args: list[str], usage: str) -> dict[str, Any] | 
     return parse_value_options(
         args,
         usage=usage,
-        command_name="asset-report",
+        command_name="repo report",
         value_options={
             "--file": "file",
             "--campaign": "campaign",
@@ -538,7 +882,7 @@ def parse_producer_handoff_options(args: list[str], usage: str) -> dict[str, Any
     return parse_value_options(
         args,
         usage=usage,
-        command_name="producer-handoff",
+        command_name="repo handoff",
         value_options={
             "--campaign": "campaign",
             "--asset-id": "asset_id",
@@ -604,11 +948,14 @@ def build_asset_report(
 
     checksum = checksum_path(file_path)
     corpus = asset_corpus(file_path, paths)
-    accepted_entry = (
-        accepted_entry_for_file(paths["accepted_state"], project_root, file_path, checksum)
-        if corpus == "approved"
-        else None
-    )
+    accepted_entry = None
+    if corpus == "approved":
+        for accepted_path in accepted_lookup_paths(paths):
+            accepted_entry = accepted_entry_for_file(
+                accepted_path, project_root, file_path, checksum
+            )
+            if accepted_entry is not None:
+                break
     campaign = (
         campaign_hint
         or string_from_mapping(accepted_entry, "campaign")
@@ -616,7 +963,7 @@ def build_asset_report(
     )
     asset_id = asset_id_hint or string_from_mapping(accepted_entry, "asset_id") or file_path.stem
     return {
-        "mode": "asset-report",
+        "mode": "report",
         "metadata": metadata_path or "",
         "project_root": project_root,
         "file": file_path,
@@ -629,9 +976,19 @@ def build_asset_report(
         "size": size_text(file_metadata["size"]),
         "checksum_sha256": checksum,
         "accepted_state": paths["accepted_state"],
+        "domain": string_from_mapping(accepted_entry, "domain"),
         "project_id": string_at(metadata, "project", "id") or project_root.name,
         "error": "",
     }
+
+
+def accepted_lookup_paths(paths: dict[str, Any]) -> list[Path]:
+    portfolio_paths = [
+        portfolio["accepted"]
+        for portfolio in paths.get("portfolios", {}).values()
+        if isinstance(portfolio, dict) and isinstance(portfolio.get("accepted"), Path)
+    ]
+    return unique_paths([paths["accepted_state"], *portfolio_paths])
 
 
 def asset_corpus(file_path: Path, paths: dict[str, Path]) -> str:
@@ -758,7 +1115,7 @@ def single_line(value: str) -> str:
 
 def release_campaign(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py release-campaign [--metadata FILE] "
+        "usage: harness.py repo release campaign "
         "[--write] [--force] [--version VERSION] [--name NAME] "
         "[--releases COUNT] [--style STYLE] [--headline TEXT] [--changelog FILE] "
         "[--copy FILE] [--campaign FILE] [target-dir]"
@@ -767,7 +1124,7 @@ def release_campaign(args: list[str], metadata: dict[str, Any], metadata_path: s
         args,
         usage=usage,
         allow_write=True,
-        command_name="release-campaign",
+        command_name="repo release campaign",
     )
     plan = build_release_campaign_plan(metadata, options)
     if isinstance(plan, str):
@@ -799,7 +1156,7 @@ def release_campaign(args: list[str], metadata: dict[str, Any], metadata_path: s
 
 def release_copy(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py release-copy [--metadata FILE] "
+        "usage: harness.py repo release copy "
         "[--write] [--force] [--version VERSION] [--name NAME] "
         "[--releases COUNT] [--headline TEXT] [--changelog FILE] "
         "[--copy FILE] [target-dir]"
@@ -808,7 +1165,7 @@ def release_copy(args: list[str], metadata: dict[str, Any], metadata_path: str |
         args,
         usage=usage,
         allow_write=True,
-        command_name="release-copy",
+        command_name="repo release copy",
     )
     plan = build_release_copy_plan(metadata, options)
     if isinstance(plan, str):
@@ -840,7 +1197,7 @@ def release_copy(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
 def release_render(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py release-render [--metadata FILE] "
+        "usage: harness.py repo gen release "
         "[--force] [--version VERSION] [--name NAME] [--releases COUNT] [--style STYLE] "
         "[--headline TEXT] [--changelog FILE] [--copy FILE] "
         "[--campaign FILE] [target-dir]"
@@ -849,7 +1206,7 @@ def release_render(args: list[str], metadata: dict[str, Any], metadata_path: str
         args,
         usage=usage,
         allow_write=False,
-        command_name="release-render",
+        command_name="repo gen release",
     )
     plan = build_release_campaign_plan(metadata, options)
     if isinstance(plan, str):
@@ -893,11 +1250,14 @@ def release_render(args: list[str], metadata: dict[str, Any], metadata_path: str
     print_release_summary(
         plan,
         metadata_path=metadata_path,
-        mode="render",
+        mode="gen-release",
         campaign_status=write_result["status"],
         copy_status=copy_result["status"],
         producer_context_path=Path(str(producer_context_result["path"])),
         producer_skill=str(producer_context_result["producer_skill"]),
+        portfolio=str(producer_context_result["portfolio"]),
+        portfolio_accepted=Path(str(producer_context_result["portfolio_accepted"])),
+        portfolio_asset_state=Path(str(producer_context_result["portfolio_asset_state"])),
     )
     return 0
 
@@ -1086,7 +1446,8 @@ def build_release_campaign_plan(
     campaign_path = (
         Path(resolve_project_path(project_root, options["campaign_path_value"]))
         if options["campaign_path_value"]
-        else paths["campaigns_dir"] / f"{copy_plan['campaign_name']}.campaign.yaml"
+        else paths["campaign_dirs"]["release"]
+        / f"{copy_plan['campaign_name']}.campaign.yaml"
     )
     campaign_yaml = build_release_campaign_yaml(
         name=str(copy_plan["campaign_name"]),
@@ -1618,6 +1979,9 @@ def write_release_producer_context(
     metadata: dict[str, Any],
 ) -> dict[str, object]:
     output_dir = Path(str(plan["output_dir"]))
+    project_root = Path(str(plan["project_root"]))
+    paths = project_paths(metadata, project_root)
+    release_portfolio = paths["portfolios"]["release"]
     run_lock_path = output_dir / "run.lock.json"
     context_path = output_dir / "producer-context.json"
     producer_skill = string_at(metadata, "skills", "image") or ""
@@ -1675,6 +2039,14 @@ def write_release_producer_context(
         "campaign": str(plan["campaign_path"]),
         "run_lock": str(run_lock_path),
         "output_dir": str(output_dir),
+        "portfolio": {
+            "domain": "release",
+            "theme": theme_source_path(metadata, project_root) or "",
+            "accepted": str(release_portfolio["accepted"]),
+            "asset_state": str(release_portfolio["asset_state"]),
+            "patterns": str(release_portfolio["patterns"]),
+            "excluded_domains": ["promo"],
+        },
         "producer": producer,
         "resolved_style": run_lock.get("resolved_style", {}) if isinstance(run_lock, dict) else {},
         "assets": assets,
@@ -1684,7 +2056,14 @@ def write_release_producer_context(
         json.dumps(context, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    return {"path": context_path, "producer_skill": producer_skill, "error": ""}
+    return {
+        "path": context_path,
+        "producer_skill": producer_skill,
+        "portfolio": "release",
+        "portfolio_accepted": release_portfolio["accepted"],
+        "portfolio_asset_state": release_portfolio["asset_state"],
+        "error": "",
+    }
 
 
 def print_release_summary(
@@ -1696,6 +2075,9 @@ def print_release_summary(
     copy_status: str | None = None,
     producer_context_path: Path | None = None,
     producer_skill: str | None = None,
+    portfolio: str | None = None,
+    portfolio_accepted: Path | None = None,
+    portfolio_asset_state: Path | None = None,
 ) -> None:
     values = {
         "mode": mode,
@@ -1717,6 +2099,12 @@ def print_release_summary(
         values["producer_context"] = producer_context_path
     if producer_skill is not None:
         values["producer_skill"] = producer_skill
+    if portfolio is not None:
+        values["portfolio"] = portfolio
+    if portfolio_accepted is not None:
+        values["portfolio_accepted"] = portfolio_accepted
+    if portfolio_asset_state is not None:
+        values["portfolio_asset_state"] = portfolio_asset_state
     print_kv(values)
 
 
@@ -2117,7 +2505,10 @@ def print_plan(metadata: dict[str, Any]) -> None:
         {
             "project_root": project_root,
             "marketing_root": paths["marketing_root"],
+            "campaigns_root": paths["campaigns_root"],
             "campaigns_dir": paths["campaigns_dir"],
+            "release_campaigns_dir": paths["campaign_dirs"]["release"],
+            "promo_campaigns_dir": paths["campaign_dirs"]["promo"],
             "references_dir": paths["references_dir"],
             "plans_dir": paths["plans_dir"],
             "asset_index": paths["asset_index"],
@@ -2143,10 +2534,10 @@ def print_state(args: list[str], metadata: dict[str, Any], metadata_path: str | 
         if token == "--compact":
             pretty = False
         elif token in {"-h", "--help"}:
-            print("usage: harness.py state [--metadata FILE] [--compact] [target-dir]")
+            print("usage: harness.py repo state [--compact] [target-dir]")
             return 0
         elif token.startswith("-"):
-            raise SystemExit(f"unknown state option: {token}")
+            raise SystemExit(f"unknown repo state option: {token}")
         else:
             target = token
 
@@ -2156,7 +2547,7 @@ def print_state(args: list[str], metadata: dict[str, Any], metadata_path: str | 
     return 1 if snapshot["errors"] else 0
 
 
-def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Path]:
+def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Any]:
     marketing_root = path_at(
         metadata, project_root, DEFAULT_MARKETING_ROOT, "project", "marketingRoot"
     )
@@ -2178,20 +2569,26 @@ def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Pat
         "accepted",
     )
     directory_state_file = string_at(metadata, "state", "directoryStateFile") or "asset-state.yaml"
-    campaigns_value = theme_metadata_path_value(metadata, "campaigns")
     references_value = theme_metadata_path_value(metadata, "references")
-    campaigns_dir = (
-        Path(resolve_project_path(project_root, campaigns_value))
-        if campaigns_value
-        else marketing_root / "campaigns"
+    legacy_campaigns_value = theme_metadata_path_value(metadata, "campaigns")
+    campaigns_root = campaign_root_path(
+        metadata,
+        project_root,
+        Path(resolve_project_path(project_root, legacy_campaigns_value))
+        if legacy_campaigns_value
+        else marketing_root / "campaigns",
     )
+    campaign_dirs = campaign_domain_paths(metadata, project_root, campaigns_root)
+    campaigns_dir = campaign_dirs["promo"]
     references_dir = (
         Path(resolve_project_path(project_root, references_value))
         if references_value
         else marketing_root / "references"
     )
+    portfolios = portfolio_paths(metadata, project_root, marketing_root)
     return {
         "marketing_root": marketing_root,
+        "campaigns_root": campaigns_root,
         "scratch_dir": scratch_dir,
         "approved_dir": approved_dir,
         "plans_dir": plans_dir,
@@ -2199,7 +2596,114 @@ def project_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Pat
         "directory_state_file": directory_state_file,
         "accepted_state": accepted_state,
         "campaigns_dir": campaigns_dir,
+        "campaign_dirs": campaign_dirs,
         "references_dir": references_dir,
+        "portfolios": portfolios,
+    }
+
+
+def campaign_root_path(
+    metadata: dict[str, Any],
+    project_root: Path,
+    default: Path,
+) -> Path:
+    root_value = metadata_path_value(metadata, "campaigns", "root")
+    return (
+        Path(resolve_project_path(project_root, root_value))
+        if root_value
+        else default
+    )
+
+
+def campaign_domain_paths(
+    metadata: dict[str, Any],
+    project_root: Path,
+    campaigns_root: Path,
+) -> dict[str, Path]:
+    return {
+        "release": path_at(
+            metadata,
+            project_root,
+            str(campaigns_root / "release"),
+            "campaigns",
+            "release",
+        ),
+        "promo": path_at(
+            metadata,
+            project_root,
+            str(campaigns_root / "promo"),
+            "campaigns",
+            "promo",
+        ),
+    }
+
+
+def portfolio_paths(
+    metadata: dict[str, Any],
+    project_root: Path,
+    marketing_root: Path,
+) -> dict[str, dict[str, Path]]:
+    root_value = metadata_path_value(metadata, "portfolios", "root")
+    root = (
+        Path(resolve_project_path(project_root, root_value))
+        if root_value
+        else marketing_root / "portfolios"
+    )
+    result: dict[str, dict[str, Path]] = {}
+    for domain in PORTFOLIO_DOMAINS:
+        domain_root = root / domain
+        result[domain] = {
+            "accepted": path_at(
+                metadata,
+                project_root,
+                str(domain_root / "accepted.yaml"),
+                "portfolios",
+                domain,
+                "accepted",
+            ),
+            "asset_state": path_at(
+                metadata,
+                project_root,
+                str(domain_root / "asset-state.yaml"),
+                "portfolios",
+                domain,
+                "assetState",
+            ),
+            "patterns": path_at(
+                metadata,
+                project_root,
+                str(domain_root / "patterns.md"),
+                "portfolios",
+                domain,
+                "patterns",
+            ),
+        }
+    return result
+
+
+def org_brand_paths(metadata: dict[str, Any], project_root: Path) -> dict[str, Path]:
+    return {
+        "brand_standard": path_at(
+            metadata,
+            project_root,
+            FALLBACK_ORG_BRAND_STANDARD,
+            "brandStandard",
+            "path",
+        ),
+        "theme_base": path_at(
+            metadata,
+            project_root,
+            FALLBACK_ORG_THEME_BASE,
+            "brandStandard",
+            "themeBase",
+        ),
+        "references": path_at(
+            metadata,
+            project_root,
+            FALLBACK_ORG_REFERENCES,
+            "brandStandard",
+            "references",
+        ),
     }
 
 
@@ -2211,11 +2715,13 @@ def collect_state_snapshot(
     paths = project_paths(metadata, project_root)
     errors: list[str] = []
     state_files = collect_state_files(metadata, project_root, paths, errors)
+    portfolios = collect_portfolio_state(paths, errors)
     asset_roots = collect_asset_roots(metadata, project_root, paths, errors)
     related_repos = collect_related_repos(metadata, project_root, errors)
     required_reads = [
         paths["asset_index"],
         paths["accepted_state"],
+        *portfolio_read_paths(portfolios),
         *[entry["path"] for entry in state_files if entry["exists"]],
     ]
     return {
@@ -2229,8 +2735,12 @@ def collect_state_snapshot(
         "organization": mapping_summary(value_at(metadata, "organization")),
         "theme": {
             "path": theme_metadata_path_value(metadata, "path") or "",
-            "campaigns": theme_metadata_path_value(metadata, "campaigns") or "",
             "references": theme_metadata_path_value(metadata, "references") or "",
+        },
+        "campaigns": {
+            "root": str(paths["campaigns_root"]),
+            "release": str(paths["campaign_dirs"]["release"]),
+            "promo": str(paths["campaign_dirs"]["promo"]),
         },
         "state": {
             "plans": str(paths["plans_dir"]),
@@ -2240,10 +2750,43 @@ def collect_state_snapshot(
         },
         "asset_roots": asset_roots,
         "state_files": state_files,
+        "portfolios": portfolios,
         "related_repos": related_repos,
         "read_before_production": unique_strings(str(path) for path in required_reads),
         "errors": errors,
     }
+
+
+def collect_portfolio_state(
+    paths: dict[str, Any],
+    errors: list[str],
+) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for domain, portfolio in paths["portfolios"].items():
+        result[domain] = {
+            "accepted": read_state_file(
+                "portfolio_accepted", portfolio["accepted"].resolve(), errors
+            ),
+            "asset_state": read_state_file(
+                "portfolio_asset_state", portfolio["asset_state"].resolve(), errors
+            ),
+            "patterns": {
+                "kind": "portfolio_patterns",
+                "path": str(portfolio["patterns"]),
+                "exists": portfolio["patterns"].exists(),
+            },
+        }
+    return result
+
+
+def portfolio_read_paths(portfolios: dict[str, dict[str, Any]]) -> list[str]:
+    paths: list[str] = []
+    for portfolio in portfolios.values():
+        for key in ("accepted", "asset_state", "patterns"):
+            entry = portfolio.get(key)
+            if isinstance(entry, dict) and entry.get("exists"):
+                paths.append(str(entry.get("path") or ""))
+    return [path for path in paths if path]
 
 
 def collect_state_files(
@@ -2624,6 +3167,10 @@ def build_accepted_entry(
     metadata: dict[str, Any],
     notes: str,
     tags: list[str],
+    domain: str,
+    source_kind: str,
+    asset_type: str,
+    style_family: str,
 ) -> dict[str, Any]:
     entry_id = f"{campaign}-{asset_id}"
     return {
@@ -2631,6 +3178,10 @@ def build_accepted_entry(
         "kind": "artifact",
         "campaign": campaign,
         "asset_id": asset_id,
+        "domain": domain,
+        "source_kind": source_kind,
+        "asset_type": asset_type,
+        "style_family": style_family,
         "path": relative_project_path(project_root, approved_file),
         "manifest": relative_project_path(project_root, manifest_path),
         "run_lock": relative_project_path(project_root, run_lock) if run_lock else "",
@@ -2678,6 +3229,10 @@ def upsert_asset_state(path: Path, entry: dict[str, Any], project_root: Path) ->
         "kind": entry["kind"],
         "campaign": entry["campaign"],
         "asset_id": entry["asset_id"],
+        "domain": entry.get("domain", ""),
+        "source_kind": entry.get("source_kind", ""),
+        "asset_type": entry.get("asset_type", ""),
+        "style_family": entry.get("style_family", ""),
         "size": entry["size"],
         "mime_type": entry["mime_type"],
         "checksum_sha256": entry["checksum_sha256"],
@@ -2782,6 +3337,35 @@ def accept_tags(raw: str, campaign: str, asset_id: str) -> list[str]:
     return tags
 
 
+def accepted_domain(raw: str, campaign: str) -> str:
+    if raw:
+        return raw if raw in PORTFOLIO_DOMAINS else ""
+    return "release" if campaign.startswith("release-") else "promo"
+
+
+def accepted_source_kind(domain: str, raw: str) -> str:
+    if raw:
+        return raw
+    return "changelog" if domain == "release" else "campaign-brief"
+
+
+def accepted_asset_type(domain: str, asset_id: str, raw: str) -> str:
+    if raw:
+        return raw
+    if domain == "release":
+        for value in ("release-poster", "release-card", "release-square"):
+            if value in asset_id:
+                return value
+        return "release-poster"
+    return "hero"
+
+
+def accepted_style_family(domain: str, raw: str) -> str:
+    if raw:
+        return raw
+    return "log-full-editorial" if domain == "release" else "screen-first-field-scene"
+
+
 def relative_project_path(project_root: Path, path: Path | None) -> str:
     if path is None:
         return ""
@@ -2798,6 +3382,51 @@ def copy_example(marketing_root: Path) -> None:
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(example, target)
+
+
+def org_brand_standard_template(project_root: Path) -> str:
+    org_id = slugify(project_root.name, "org")
+    return f"""# {org_id} Brand Standard
+
+## Source Inputs
+
+- Add logos, screenshots, decks, website captures, and marketing references
+  under `public/brand/references/`.
+
+## Positioning
+
+Describe the organization's positioning, audience, and product adaptation
+rules after reviewing source inputs.
+
+## Visual Language
+
+Describe palette, typography direction, composition rules, materials, lighting,
+motion cues, and avoid-list decisions after review.
+
+## Voice
+
+Describe tone, messaging constraints, and do/don't guidance.
+"""
+
+
+def org_theme_base_template(project_root: Path) -> str:
+    org_id = slugify(project_root.name, "org")
+    return f"""---
+organization:
+  id: {yaml_string(org_id)}
+version: 1.0.0
+global:
+  color: {{}}
+  typography: {{}}
+alias:
+  style: {{}}
+---
+
+# {org_id} Base Theme
+
+Machine-readable base style lock for product repos. Fill this after reviewing
+the org brand references.
+"""
 
 
 def load_metadata(path: str | None, project_root: str | None = None) -> dict[str, Any]:

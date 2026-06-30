@@ -15,4 +15,4 @@ if [ -z "$python_bin" ]; then
   exit 1
 fi
 
-exec "$python_bin" "$script_dir/harness.py" repo init "$@"
+exec "$python_bin" "$script_dir/studio.py" repo init "$@"

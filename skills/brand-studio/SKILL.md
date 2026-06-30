@@ -113,7 +113,7 @@ Use the canonical runtime helper only to create or check the deterministic org
 brand files:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" org init --write
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" org init --write
 ```
 
 The helper creates missing `brand-standard.md`, `theme.base.md`, and
@@ -165,12 +165,12 @@ $brand-studio init this repo from existing repo assets
 For image-first init:
 
 1. Locate the skill root from the installed skill or repo submodule.
-2. Find or create `marketing.harness.yaml` using metadata paths. If the file is
+2. Find or create `marketing.studio.yaml` using metadata paths. If the file is
    missing, infer `project.id` from the repo directory name, use `root: .`, use
    `assets/marketing` for `project.marketingRoot`, use
    `assets/marketing/campaigns/release` and
    `assets/marketing/campaigns/promo` for campaign domains, use
-   `.harness/marketing/out` for scratch output, and use `public/marketing` for
+   `.studio/marketing/out` for scratch output, and use `public/marketing` for
    approved assets. Omit `organization` unless the user supplied it or the repo
    already makes it clear.
 3. Run `repo init` in dry-run mode first. Only create directories after the paths
@@ -191,8 +191,8 @@ For image-first init:
 9. Show the generated file paths and dry-run outputs. The user can edit
    `brief.md` or `theme.md`, or ask for a revision.
 
-Do not add image understanding to `harness.py`. Codex, Claude, or the active
-agent reads images; the harness remains deterministic and only handles paths,
+Do not add image understanding to `studio.py`. Codex, Claude, or the active
+agent reads images; the studio remains deterministic and only handles paths,
 validation, repo init, and dry-run rendering.
 
 If `theme.md` already exists, do not silently replace it. Revise it in place
@@ -237,20 +237,31 @@ campaigns:
   promo: assets/marketing/campaigns/promo
 
 skills:
-  # Bind each capability to a locally installed producer skill (by name).
-  # Leave a value empty until you have selected and installed that producer.
+  # Bind each capability to a producer: a bundled producers/<id> or a locally
+  # installed skill name. Empty = unbound (never silently routed to image).
+  # See references/recommendations.yaml for suggested producers per capability.
   image: ""
-  design: ""
+  video: ""
+  copy: ""
   slide: ""
   logo: ""
   social: ""
+
+backends:
+  # Execution engine per modality. The studio runtime only declares/threads this
+  # into producer-context.json; the producer subagent runs it. Credentials live
+  # in the runner's env, never here. Empty = the bound producer uses its own engine.
+  text-to-image:
+    runner: ""        # codex-exec | api | mcp | custom
+    command: ""       # e.g. "codex exec ..." (user-local CLI)
+    model: ""         # e.g. gpt-image-2
 
 campaign:
   name: launch
   path: assets/marketing/campaigns/promo/launch.campaign.yaml
 
 artifacts:
-  scratch: .harness/marketing/out
+  scratch: .studio/marketing/out
   approved: public/marketing
 
 state:
@@ -300,7 +311,7 @@ Keep these roots separate:
 - **Repo asset tree:** the repo-owned hierarchy under declared asset roots.
   Treat the repo and its asset directories as the asset namespace.
 - **Scratch output:** the product-owned temporary render location from metadata,
-  such as `.harness/marketing/out`.
+  such as `.studio/marketing/out`.
 - **Approved assets:** the product-owned location for user-accepted generated
   files.
 - **Accepted state:** the transitional aggregate accepted index, usually
@@ -319,7 +330,7 @@ by default. Use metadata paths.
 The launcher is:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" --metadata marketing.harness.yaml
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" --metadata marketing.studio.yaml
 ```
 
 Pass `--project-root` whenever the command may run from a skill checkout,
@@ -349,10 +360,11 @@ Prefer the canonical command surface:
 | `settle-repo` | `repo settle --campaign <name> --asset-id <id> --file <path>` |
 | report | `repo report --file <path>` |
 | `delete-repo` candidate | `repo delete candidate --file <path>` |
+| producer catalog | `python3 "$SKILL_ROOT/scripts/catalog.py"` |
 
 The old top-level helper commands are not a public command surface. Use
 `org ...` or `repo ...`; helper functions under the hood are implementation
-details. Use `scripts/check_harness.sh` and `scripts/bootstrap_project.sh` only
+details. Use `scripts/check_studio.sh` and `scripts/bootstrap_project.sh` only
 as internal setup wrappers. `repo init` is create-only, dry-run by default, and
 must show the user the planned directories before any write.
 
@@ -374,11 +386,58 @@ must show the user the planned directories before any write.
 For the lifecycle, read `references/workflows.md`. For schema contracts, read
 `references/contracts.md`.
 
+## Assets, Producers, Backends, and Orchestration
+
+An **asset** is multimodal — image, video, brand-tone copy, slide, logo, social —
+all uniformly settled into the same corpus. The studio runtime validates and
+settles by `modality`, not an image-only allowlist; accepted entries carry
+`modality`. brand-studio curates and settles; it never produces.
+
+**Producers** are referenced, never owned:
+
+- Bind each capability under `metadata.skills` (`image`/`video`/`copy`/`slide`/
+  `logo`/`social`) to a bundled `producers/<id>` or an installed skill name.
+  An unbound capability is unbound — it is never silently routed to `image`.
+- Bundled producers under `producers/<id>/SKILL.md` are **read-only**: the agent
+  *reads* them as procedure/context (they are not Skill-tool invocable, so they
+  never pollute the user's global skill list). `scripts/catalog.py` enumerates
+  them into a `capability -> producers` registry. Only bundle instruction-grade
+  producers; heavy toolchains (e.g. remotion) stay at user/project scope.
+- `references/recommendations.yaml` is the suggested-producer catalog (pointers,
+  not implementations). Never auto-download, clone, install, or register a
+  producer. When a capability has no producer, suggest one and ask the user.
+
+**Producer selection** (main agent): map capability → best-match producer; on no
+clear match, **ask the user**; **hybrid** is allowed (compose several skills).
+When reading a producer/design skill, borrow its **UI convention**, not its
+specific technique — unless the user asks for that technique.
+
+**Backends** decide what engine renders a prompt, orthogonal to `skills`:
+
+```yaml
+backends:
+  text-to-image:
+    runner: codex-exec        # api | mcp | custom
+    command: "codex exec ..." # user-local CLI; auth stays in the runner env
+    model: gpt-image-2
+```
+
+The studio runtime only **declares** the backend and threads it into
+`producer-context.json` and `repo handoff` output; it **never executes** one.
+Running a backend is a generation call — the producer subagent does it.
+
+**Orchestration**: main agent owns the human gates (approve cost/producer before
+live generation; review + `settle` after). After approval it fans out one
+**subagent per deliverable/capability** to invoke the bound producer + backend
+and return data only (path, mime, dims, checksum). Subagents cannot prompt the
+user, so all approval happens in main before fan-out. A single deliverable with
+one producer can run inline. See `CLAUDE.md` for the full boundary.
+
 ## Style Production
 
 When a design skill, Claude, Codex, or a human produces style, freeze the
 machine-readable tokens as YAML frontmatter in `theme.md` before render. Style production is not
-a harness command; use the most relevant local design skill or a human-provided
+a studio command; use the most relevant local design skill or a human-provided
 brief and references, then write or update a proposal file under the
 metadata-declared marketing root.
 
@@ -450,7 +509,7 @@ Before live generation, confirm API usage, possible cost, and the exact
 external producer skill. If the user directly asks for live generation, treat
 that as action approval, but still state the selected producer and that the call
 may bill before invoking it. If the request is ambiguous, stop and ask for
-confirmation. The harness treats third-party production skills as local producer
+confirmation. The studio treats third-party production skills as local producer
 capabilities, not vendored dependencies. It does not wrap GPT, OpenAI, or any
 image API. Bind producer skills in metadata under `skills`, then use only
 locally installed or explicitly configured producers. Do not auto-download,
@@ -503,8 +562,8 @@ never edits `.gitattributes` and never runs `git add`, `commit`, or `push`.
 Internal preflight helper:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata path/to/marketing.harness.yaml repo state
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml repo state
 ```
 
 Use this output to ground the production plan. Do not treat it as an asset
@@ -514,8 +573,8 @@ Internal producer handoff helper, after dry-run and before any paid/live
 producer call:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata marketing.harness.yaml repo handoff \
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata marketing.studio.yaml repo handoff \
   --campaign launch \
   --asset-id web-banner
 ```
@@ -527,15 +586,15 @@ size, format, producer skill, and target scratch path, and print
 Internal acceptance helper, after the user has accepted a concrete candidate:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata marketing.harness.yaml repo settle \
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata marketing.studio.yaml repo settle \
   --campaign launch \
   --asset-id web-banner \
   --domain promo \
   --source-kind campaign-brief \
   --asset-type hero \
   --style-family screen-first-field-scene \
-  --file .harness/marketing/out/launch/web-banner.png \
+  --file .studio/marketing/out/launch/web-banner.png \
   --checksum-sha256 <sha256> \
   --notes "Accepted by user review." \
   --tags launch,web-banner \
@@ -557,9 +616,9 @@ It prints the report fields needed for the final response, including
 Internal report helper, for a real candidate before or after acceptance:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata marketing.harness.yaml repo report \
-  --file .harness/marketing/out/launch/web-banner.png
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata marketing.studio.yaml repo report \
+  --file .studio/marketing/out/launch/web-banner.png
 ```
 
 Use this before final reporting when no accept command just ran. If
@@ -619,8 +678,8 @@ Migrate without treating every existing file as accepted:
 Release-version helpers:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml \
   repo release copy --write --releases 4
 ```
 
@@ -636,8 +695,8 @@ repeat `package`; only multi-package release copy needs release-level package
 labels. It does not write a separate `key_points` block.
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml \
   repo gen release --releases 4
 ```
 
@@ -692,9 +751,12 @@ After code or workflow changes:
 ```bash
 uv run ruff check .
 uv run pytest
-cd skills/brand-studio/examples/codefox
-uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml repo validate
-uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml repo render --dry-run
+# Full produce -> settle loop on a throwaway copy of the sandbox, with a stub
+# backend (free, deterministic): validate -> render -> produce -> settle -> report.
+uv run python tests/sandbox/drive.py
+cd tests/sandbox
+uv run python ../../skills/brand-studio/scripts/studio.py --project-root "$PWD" --metadata marketing.studio.yaml repo validate
+uv run python ../../skills/brand-studio/scripts/studio.py --project-root "$PWD" --metadata marketing.studio.yaml repo render --dry-run
 ```
 
 Check that no API key, authorization header, machine-specific path, or

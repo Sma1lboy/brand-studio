@@ -11,7 +11,7 @@ from types import ModuleType
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = ROOT / "skills" / "brand-studio" / "scripts" / "harness.py"
+SCRIPT_PATH = ROOT / "skills" / "brand-studio" / "scripts" / "studio.py"
 
 
 def load_launcher() -> ModuleType:
@@ -47,7 +47,7 @@ def metadata(root: Path) -> dict[str, object]:
             "path": "packages/branding/marketing/campaigns/promo/launch.campaign.yaml",
         },
         "artifacts": {
-            "scratch": "packages/branding/.harness/out",
+            "scratch": "packages/branding/.studio/out",
             "approved": "packages/branding/public/marketing",
         },
         "state": {
@@ -78,7 +78,7 @@ def test_metadata_supplies_validate_and_render_paths(tmp_path: Path) -> None:
 
     campaign = str(tmp_path / "packages/branding/marketing/campaigns/promo/launch.campaign.yaml")
     theme = str(tmp_path / "packages/branding/marketing/theme.md")
-    outputs = str(tmp_path / "packages/branding/.harness/out")
+    outputs = str(tmp_path / "packages/branding/.studio/out")
     assert validate_args == ["validate", campaign, "--theme", theme]
     assert render_args == [
         "render",
@@ -138,7 +138,7 @@ def test_default_project_paths_match_documented_layout(tmp_path: Path) -> None:
     assert paths["plans_dir"] == tmp_path / "assets/marketing/plans"
     assert paths["asset_index"] == tmp_path / "assets/marketing/asset-state.yaml"
     assert paths["accepted_state"] == tmp_path / "assets/marketing/accepted.yaml"
-    assert paths["scratch_dir"] == tmp_path / ".harness/marketing/out"
+    assert paths["scratch_dir"] == tmp_path / ".studio/marketing/out"
     assert paths["approved_dir"] == tmp_path / "public/marketing"
     assert paths["portfolios"]["release"] == {
         "accepted": tmp_path / "assets/marketing/portfolios/release/accepted.yaml",
@@ -192,7 +192,7 @@ def test_project_root_option_anchors_metadata_relative_paths(tmp_path: Path) -> 
     other_cwd = tmp_path / "tooling"
     project.mkdir()
     other_cwd.mkdir()
-    metadata_path = project / "marketing.harness.yaml"
+    metadata_path = project / "marketing.studio.yaml"
     metadata_path.write_text(
         """
 project:
@@ -263,7 +263,7 @@ def test_yaml_metadata_requires_pyyaml_for_lists(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     launcher = load_launcher()
-    metadata_path = tmp_path / "marketing.harness.yaml"
+    metadata_path = tmp_path / "marketing.studio.yaml"
     metadata_path.write_text(
         """
 project:
@@ -318,15 +318,15 @@ def test_bootstrap_is_dry_run_until_write(
     release_accepted = tmp_path / "packages/branding/marketing/portfolios/release/accepted.yaml"
     promo_asset_state = tmp_path / "packages/branding/marketing/portfolios/promo/asset-state.yaml"
     promo_accepted = tmp_path / "packages/branding/marketing/portfolios/promo/accepted.yaml"
-    scratch = tmp_path / "packages/branding/.harness/out"
+    scratch = tmp_path / "packages/branding/.studio/out"
 
-    assert launcher.bootstrap_project([str(tmp_path)], meta, "marketing.harness.yaml") == 0
+    assert launcher.bootstrap_project([str(tmp_path)], meta, "marketing.studio.yaml") == 0
     assert not marketing_root.exists()
     assert not scratch.exists()
     assert "mode=dry-run" in capsys.readouterr().out
 
     assert (
-        launcher.bootstrap_project(["--write", str(tmp_path)], meta, "marketing.harness.yaml")
+        launcher.bootstrap_project(["--write", str(tmp_path)], meta, "marketing.studio.yaml")
         == 0
     )
     assert marketing_root.is_dir()
@@ -398,7 +398,7 @@ def test_repo_and_org_commands_dispatch_to_existing_helpers() -> None:
 
 def test_repo_init_wraps_bootstrap(tmp_path: Path) -> None:
     project = tmp_path / "product"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     project.mkdir()
     metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
 
@@ -423,15 +423,15 @@ def test_repo_init_wraps_bootstrap(tmp_path: Path) -> None:
     assert (project / "packages/branding/marketing").is_dir()
 
 
-def test_check_harness_wrapper_uses_repo_check_with_project_python() -> None:
-    example = ROOT / "skills/brand-studio/examples/codefox"
+def test_check_studio_wrapper_uses_repo_check_with_project_python() -> None:
+    example = ROOT / "tests/sandbox"
     completed = subprocess.run(
         [
-            str(ROOT / "skills/brand-studio/scripts/check_harness.sh"),
+            str(ROOT / "skills/brand-studio/scripts/check_studio.sh"),
             "--project-root",
             str(example),
             "--metadata",
-            str(example / "marketing.harness.yaml"),
+            str(example / "marketing.studio.yaml"),
         ],
         text=True,
         capture_output=True,
@@ -446,7 +446,7 @@ def test_repo_gen_release_wraps_release_render(tmp_path: Path) -> None:
     project = tmp_path
     theme = project / "packages/branding/marketing/theme.md"
     changelog = project / "packages/kobe/CHANGELOG.md"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     release_accepted = (
         project / "packages/branding/marketing/portfolios/release/accepted.yaml"
     )
@@ -491,7 +491,7 @@ def test_repo_gen_release_wraps_release_render(tmp_path: Path) -> None:
     assert "release_source=changelog" in completed.stdout
     assert "portfolio=release" in completed.stdout
     producer_context = (
-        project / "packages/branding/.harness/out/release-v0-7-43/producer-context.json"
+        project / "packages/branding/.studio/out/release-v0-7-43/producer-context.json"
     )
     assert producer_context.is_file()
     release_campaign = (
@@ -515,15 +515,15 @@ def test_repo_gen_release_wraps_release_render(tmp_path: Path) -> None:
 
 def test_repo_settle_wraps_accept_helper(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
-    candidate = project / ".harness/marketing/out/launch/web-banner.png"
+    metadata_path = project / "marketing.studio.json"
+    candidate = project / ".studio/marketing/out/launch/web-banner.png"
     write_png(candidate, width=320, height=176)
     metadata_path.write_text(
         json.dumps(
             {
                 "project": {"id": "kobe", "root": str(project)},
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
                 "state": {"accepted": "assets/marketing/accepted.yaml"},
@@ -571,8 +571,8 @@ def test_repo_settle_wraps_accept_helper(tmp_path: Path) -> None:
 
 def test_repo_delete_candidate_only_deletes_scratch_files(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
-    candidate = project / ".harness/marketing/out/launch/web-banner.png"
+    metadata_path = project / "marketing.studio.json"
+    candidate = project / ".studio/marketing/out/launch/web-banner.png"
     approved = project / "public/marketing/launch/web-banner.png"
     write_png(candidate, width=320, height=176)
     write_png(approved, width=320, height=176)
@@ -581,7 +581,7 @@ def test_repo_delete_candidate_only_deletes_scratch_files(tmp_path: Path) -> Non
             {
                 "project": {"id": "kobe", "root": str(project)},
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
             }
@@ -708,7 +708,7 @@ def test_state_preflight_reads_repo_directory_and_related_state(tmp_path: Path) 
     promo_asset_state = project / "packages/branding/marketing/portfolios/promo/asset-state.yaml"
     promo_patterns = project / "packages/branding/marketing/portfolios/promo/patterns.md"
     related_state = related / "packages/branding/marketing/accepted.yaml"
-    metadata_path = project / "marketing.harness.yaml"
+    metadata_path = project / "marketing.studio.yaml"
 
     accepted.parent.mkdir(parents=True)
     directory_state.parent.mkdir(parents=True)
@@ -809,7 +809,7 @@ campaigns:
   release: packages/branding/marketing/campaigns/release
   promo: packages/branding/marketing/campaigns/promo
 artifacts:
-  scratch: packages/branding/.harness/out
+  scratch: packages/branding/.studio/out
   approved: packages/branding/public/marketing
 state:
   plans: packages/branding/marketing/plans
@@ -863,7 +863,7 @@ def test_render_dry_run_uses_bundled_scripts(tmp_path: Path) -> None:
     project = tmp_path
     theme = project / "packages/branding/marketing/theme.md"
     campaign = project / "packages/branding/marketing/campaigns/promo/launch.campaign.yaml"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     theme.parent.mkdir(parents=True)
     campaign.parent.mkdir(parents=True)
     theme.write_text(
@@ -935,7 +935,7 @@ deliverables:
     )
 
     assert completed.returncode == 0, completed.stderr
-    output_dir = project / "packages/branding/.harness/out/launch"
+    output_dir = project / "packages/branding/.studio/out/launch"
     assert (output_dir / "web-banner.svg").is_file()
     assert (output_dir / "manifest.json").is_file()
 
@@ -944,7 +944,7 @@ def test_release_render_reads_monorepo_package_changelog_and_renders(tmp_path: P
     project = tmp_path
     theme = project / "packages/branding/marketing/theme.md"
     changelog = project / "packages/kobe/CHANGELOG.md"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     theme.parent.mkdir(parents=True)
     changelog.parent.mkdir(parents=True)
     theme.write_text(
@@ -1015,7 +1015,7 @@ alias:
         project
         / "packages/branding/marketing/campaigns/release/release-v0-7-33.campaign.yaml"
     )
-    copy_path = project / "packages/branding/.harness/out/release-v0-7-33/copy.yaml"
+    copy_path = project / "packages/branding/.studio/out/release-v0-7-33/copy.yaml"
     copy = subprocess.run(
         [
             sys.executable,
@@ -1093,7 +1093,7 @@ alias:
     assert "Creating a task with n now drops you straight" in campaign_text
     assert "TUI task sessions now expose tmux-native layout controls." in campaign_text
 
-    output_dir = project / "packages/branding/.harness/out/release-v0-7-33"
+    output_dir = project / "packages/branding/.studio/out/release-v0-7-33"
     assert (output_dir / "release-card.svg").is_file()
     assert (output_dir / "manifest.json").is_file()
     producer_context = json.loads(
@@ -1119,7 +1119,7 @@ def test_release_copy_can_include_multiple_recent_changelog_versions(tmp_path: P
     project = tmp_path
     theme = project / "packages/branding/marketing/theme.md"
     changelog = project / "packages/kobe/CHANGELOG.md"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     theme.parent.mkdir(parents=True)
     changelog.parent.mkdir(parents=True)
     theme.write_text(
@@ -1226,7 +1226,7 @@ alias:
 
     assert copy.returncode == 0, copy.stderr
     assert "changelog_count=4" in copy.stdout
-    copy_path = project / "packages/branding/.harness/out/release-v0-7-33/copy.yaml"
+    copy_path = project / "packages/branding/.studio/out/release-v0-7-33/copy.yaml"
     copy_text = copy_path.read_text(encoding="utf-8")
     assert "key_points:" not in copy_text
     assert "releases:" in copy_text
@@ -1261,7 +1261,7 @@ alias:
     producer_context = json.loads(
         (
             project
-            / "packages/branding/.harness/out/release-v0-7-33/producer-context.json"
+            / "packages/branding/.studio/out/release-v0-7-33/producer-context.json"
         ).read_text(encoding="utf-8")
     )
     release_prompt = producer_context["assets"][0]["prompt"]
@@ -1283,7 +1283,7 @@ def test_release_copy_ignores_sandbox_worktree_and_node_modules_changelogs(
         / "packages/kobe/.dev-sandbox/home/.kobe/worktrees/retry/packages/kobe/CHANGELOG.md"
     )
     node_modules_changelog = project / "packages/kobe/node_modules/kobe/CHANGELOG.md"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     write_theme(theme)
     changelog.parent.mkdir(parents=True)
     sandbox_changelog.parent.mkdir(parents=True)
@@ -1350,7 +1350,7 @@ def test_release_copy_ignores_sandbox_worktree_and_node_modules_changelogs(
     assert copy.returncode == 0, copy.stderr
     assert "source_count=4" in copy.stdout
     assert "changelog_count=4" in copy.stdout
-    copy_path = project / "packages/branding/.harness/out/release-v0-7-43/copy.yaml"
+    copy_path = project / "packages/branding/.studio/out/release-v0-7-43/copy.yaml"
     copy_text = copy_path.read_text(encoding="utf-8")
     assert copy_text.count("    changes:") == 4
     assert copy_text.count('  - version: "0.7.43"\n    changes:') == 1
@@ -1367,7 +1367,7 @@ def test_release_copy_ignores_sandbox_worktree_and_node_modules_changelogs(
 def test_release_render_rejects_malformed_release_copy_rows(tmp_path: Path) -> None:
     project = tmp_path
     theme = project / "packages/branding/marketing/theme.md"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     copy_path = project / "copy.yaml"
     theme.parent.mkdir(parents=True)
     theme.write_text(
@@ -1464,7 +1464,7 @@ def test_gpt_image_constraints_reject_unaligned_deliverable_size(tmp_path: Path)
     project = tmp_path
     theme = project / "assets/marketing/theme.md"
     campaign = project / "assets/marketing/campaigns/promo/launch.campaign.yaml"
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     write_theme(theme, producer_id="gpt-image")
     campaign.parent.mkdir(parents=True)
     campaign.write_text(
@@ -1528,8 +1528,8 @@ deliverables:
 
 def test_producer_handoff_reports_target_prompt_and_not_generated(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
-    context_dir = project / ".harness/marketing/out/release-v0-7-43"
+    metadata_path = project / "marketing.studio.json"
+    context_dir = project / ".studio/marketing/out/release-v0-7-43"
     context_dir.mkdir(parents=True)
     target = context_dir / "release-card.png"
     (context_dir / "producer-context.json").write_text(
@@ -1559,7 +1559,7 @@ def test_producer_handoff_reports_target_prompt_and_not_generated(tmp_path: Path
             {
                 "project": {"id": "kobe", "root": str(project)},
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
                 "skills": {"image": "gpt-image"},
@@ -1601,8 +1601,8 @@ def test_producer_handoff_reports_target_prompt_and_not_generated(tmp_path: Path
 
 def test_asset_report_reports_scratch_file_metadata(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
-    candidate = project / ".harness/marketing/out/launch/web-banner.png"
+    metadata_path = project / "marketing.studio.json"
+    candidate = project / ".studio/marketing/out/launch/web-banner.png"
     write_png(candidate, width=320, height=176)
     checksum = file_sha256(candidate)
     metadata_path.write_text(
@@ -1610,7 +1610,7 @@ def test_asset_report_reports_scratch_file_metadata(tmp_path: Path) -> None:
             {
                 "project": {"id": "kobe", "root": str(project)},
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
                 "state": {"accepted": "assets/marketing/accepted.yaml"},
@@ -1647,7 +1647,7 @@ def test_asset_report_reports_scratch_file_metadata(tmp_path: Path) -> None:
 
 def test_asset_report_marks_accepted_approved_asset(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     approved = project / "public/marketing/launch/web-banner.png"
     accepted_state = project / "assets/marketing/accepted.yaml"
     write_png(approved, width=320, height=176)
@@ -1669,7 +1669,7 @@ accepted:
             {
                 "project": {"id": "kobe", "root": str(project)},
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
                 "state": {"accepted": "assets/marketing/accepted.yaml"},
@@ -1704,7 +1704,7 @@ accepted:
 
 def test_asset_report_reads_portfolio_accepted_state(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     approved = project / "public/marketing/release-v0-7-45/release-poster.png"
     accepted_state = project / "assets/marketing/portfolios/release/accepted.yaml"
     write_png(approved, width=1088, height=1920)
@@ -1731,7 +1731,7 @@ accepted:
                     "marketingRoot": "assets/marketing",
                 },
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
             }
@@ -1764,8 +1764,8 @@ accepted:
 
 def test_accept_helper_copies_candidate_and_updates_manifest_and_state(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
-    candidate = project / ".harness/marketing/out/launch/web-banner.png"
+    metadata_path = project / "marketing.studio.json"
+    candidate = project / ".studio/marketing/out/launch/web-banner.png"
     run_lock = candidate.parent / "run.lock.json"
     plan = project / "assets/marketing/plans/launch.plan.yaml"
     write_png(candidate, width=320, height=176)
@@ -1791,7 +1791,7 @@ def test_accept_helper_copies_candidate_and_updates_manifest_and_state(tmp_path:
                         "marketingRoot": "assets/marketing",
                     },
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
                 "state": {
@@ -1877,10 +1877,10 @@ def test_accept_helper_copies_candidate_and_updates_manifest_and_state(tmp_path:
 
 def test_accept_helper_defaults_release_assets_to_release_portfolio(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
+    metadata_path = project / "marketing.studio.json"
     candidate = (
         project
-        / ".harness/marketing/out/release-v0-7-45/release-v0-7-45-poster-logfull.png"
+        / ".studio/marketing/out/release-v0-7-45/release-v0-7-45-poster-logfull.png"
     )
     write_png(candidate, width=1088, height=1920)
     metadata_path.write_text(
@@ -1892,7 +1892,7 @@ def test_accept_helper_defaults_release_assets_to_release_portfolio(tmp_path: Pa
                     "marketingRoot": "assets/marketing",
                 },
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
                 "state": {"accepted": "assets/marketing/accepted.yaml"},
@@ -1938,8 +1938,8 @@ def test_accept_helper_defaults_release_assets_to_release_portfolio(tmp_path: Pa
 
 def test_accept_helper_rejects_checksum_mismatch(tmp_path: Path) -> None:
     project = tmp_path
-    metadata_path = project / "marketing.harness.json"
-    candidate = project / ".harness/marketing/out/launch/web-banner.png"
+    metadata_path = project / "marketing.studio.json"
+    candidate = project / ".studio/marketing/out/launch/web-banner.png"
     write_png(candidate, width=320, height=176)
     metadata_path.write_text(
         json.dumps(
@@ -1950,7 +1950,7 @@ def test_accept_helper_rejects_checksum_mismatch(tmp_path: Path) -> None:
                         "marketingRoot": "assets/marketing",
                     },
                 "artifacts": {
-                    "scratch": ".harness/marketing/out",
+                    "scratch": ".studio/marketing/out",
                     "approved": "public/marketing",
                 },
                 "state": {"accepted": "assets/marketing/accepted.yaml"},
@@ -2055,3 +2055,111 @@ def file_sha256(path: Path) -> str:
     import hashlib
 
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_resolve_backend_maps_capability_to_modality() -> None:
+    launcher = load_launcher()
+    meta = {
+        "backends": {
+            "text-to-image": {
+                "runner": "codex-exec",
+                "command": "codex exec --image",
+                "model": "gpt-image-2",
+            }
+        }
+    }
+    # image / logo / social all map to the text-to-image backend.
+    for capability in ("image", "logo", "social"):
+        backend = launcher.resolve_backend(meta, capability)
+        assert backend["modality"] == "text-to-image"
+        assert backend["runner"] == "codex-exec"
+        assert backend["model"] == "gpt-image-2"
+    # Unconfigured modality resolves to an empty backend, never a fallback.
+    assert launcher.resolve_backend(meta, "video") == {}
+    assert launcher.resolve_backend({}, "image") == {}
+
+
+CATALOG_PATH = ROOT / "skills" / "brand-studio" / "scripts" / "catalog.py"
+
+
+def load_catalog() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("brand_studio_catalog", CATALOG_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _write_producer(root: Path, name: str, frontmatter: str) -> None:
+    skill_dir = root / name
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(f"---\n{frontmatter}\n---\n\nbody\n", encoding="utf-8")
+
+
+def test_catalog_scans_producers_and_skips_underscore(tmp_path: Path) -> None:
+    catalog = load_catalog()
+    producers = tmp_path / "producers"
+    _write_producer(
+        producers,
+        "gpt-image-prompt",
+        "\n".join(
+            [
+                "name: gpt-image-prompt",
+                "description: prompt craft",
+                "capability: image",
+                "modality: image",
+                "lane: generator",
+            ]
+        ),
+    )
+    _write_producer(
+        producers,
+        "taste-ref",
+        "\n".join(
+            [
+                "name: taste-ref",
+                "description: borrow taste",
+                "capability: design-convention",
+                "lane: reference",
+            ]
+        ),
+    )
+    _write_producer(
+        producers,
+        "_template",
+        "name: _template\ndescription: skip me\ncapability: image",
+    )
+
+    found = catalog.scan_producers(producers)
+    ids = {p["id"] for p in found}
+    assert ids == {"gpt-image-prompt", "taste-ref"}  # underscore dir skipped
+
+    registry = catalog.build_registry(found)
+    assert registry["image"][0]["lane"] == "generator"
+    # modality defaults to capability when omitted.
+    assert registry["design-convention"][0]["modality"] == "design-convention"
+    assert registry["design-convention"][0]["lane"] == "reference"
+
+
+def test_catalog_empty_dir_returns_nothing(tmp_path: Path) -> None:
+    catalog = load_catalog()
+    assert catalog.scan_producers(tmp_path / "missing") == []
+
+
+def test_modality_and_metadata_for_non_image(tmp_path: Path) -> None:
+    launcher = load_launcher()
+    assert launcher.modality_for(Path("a.mp4")) == "video"
+    assert launcher.modality_for(Path("a.md")) == "copy"
+    assert launcher.modality_for(Path("a.html")) == "slide"
+    assert launcher.modality_for(Path("a.png")) == "image"
+    assert launcher.mime_type_for(Path("a.mp4")) == "video/mp4"
+    assert launcher.mime_type_for(Path("a.md")) == "text/markdown"
+
+    copy_file = tmp_path / "headline.md"
+    copy_file.write_text("# Brand headline\n", encoding="utf-8")
+    meta = launcher.read_candidate_metadata(copy_file)
+    # Non-pixel asset settles on mime + checksum: no error, no required size.
+    assert meta["error"] is None
+    assert meta["modality"] == "copy"
+    assert meta["mime_type"] == "text/markdown"
+    assert meta["size"] == [0, 0]

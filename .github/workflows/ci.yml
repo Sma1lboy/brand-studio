@@ -42,20 +42,20 @@ jobs:
         run: uv run pytest
 
       - name: Validate example campaign
-        working-directory: skills/brand-studio/examples/codefox
-        run: uv run python ../../scripts/harness.py --metadata marketing.harness.yaml repo validate
+        working-directory: tests/sandbox
+        run: uv run python ../../skills/brand-studio/scripts/studio.py --metadata marketing.studio.yaml repo validate
 
       - name: Render example campaign without API calls
-        working-directory: skills/brand-studio/examples/codefox
-        run: uv run python ../../scripts/harness.py --metadata marketing.harness.yaml repo render --dry-run
+        working-directory: tests/sandbox
+        run: uv run python ../../skills/brand-studio/scripts/studio.py --metadata marketing.studio.yaml repo render --dry-run
 
       - name: Validate launcher smoke
         run: |
-          uv run python skills/brand-studio/scripts/harness.py repo check
-          cd skills/brand-studio/examples/codefox
-          uv run python ../../scripts/harness.py --metadata marketing.harness.yaml repo validate
+          uv run python skills/brand-studio/scripts/studio.py repo check
+          cd tests/sandbox
+          uv run python ../../skills/brand-studio/scripts/studio.py --metadata marketing.studio.yaml repo validate
 
       - name: Check dry-run output contract
         run: |
-          test -f skills/brand-studio/examples/codefox/packages/branding/.harness/out/feature-x-launch/manifest.json
-          test -f skills/brand-studio/examples/codefox/packages/branding/.harness/out/feature-x-launch/run.lock.json
+          test -f tests/sandbox/packages/branding/.studio/out/feature-x-launch/manifest.json
+          test -f tests/sandbox/packages/branding/.studio/out/feature-x-launch/run.lock.json

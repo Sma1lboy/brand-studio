@@ -4,7 +4,7 @@ Subject: CodeFox Brand Studio, a developer-facing system that turns locked brand
 
 Audience: product engineers, growth teams, and founders who need repeatable launch visuals without letting every project invent its own prompt style.
 
-Single job: make the harness feel like a precise production pipeline, not a generic AI art toy.
+Single job: make the studio feel like a precise production pipeline, not a generic AI art toy.
 
 Design direction from the local frontend-design skill:
 

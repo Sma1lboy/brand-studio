@@ -7,15 +7,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from harness_runtime.config import (
+from studio_runtime.config import (
     CampaignContent,
     Deliverable,
     LoadedConfig,
     ResolvedStyle,
-    load_harness_config,
+    load_studio_config,
 )
-from harness_runtime.manifest import AssetManifestInput, build_manifest, checksum_file, write_json
-from harness_runtime.producer import GenerationRequest, ProducerError, write_dry_run_asset
+from studio_runtime.manifest import AssetManifestInput, build_manifest, checksum_file, write_json
+from studio_runtime.producer import GenerationRequest, ProducerError, write_dry_run_asset
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ def render_campaign(
     outputs_dir: Path = Path("outputs"),
     dry_run: bool = False,
 ) -> RenderResult:
-    loaded = load_harness_config(campaign_path=campaign_path, brand_path=brand_path)
+    loaded = load_studio_config(campaign_path=campaign_path, brand_path=brand_path)
     return render_loaded_config(loaded, outputs_dir=outputs_dir, dry_run=dry_run)
 
 

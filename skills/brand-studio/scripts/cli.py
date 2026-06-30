@@ -5,9 +5,9 @@ import argparse
 import sys
 from pathlib import Path
 
-from harness_runtime.config import ConfigError, load_harness_config
-from harness_runtime.producer import ProducerError
-from harness_runtime.render import render_campaign
+from studio_runtime.config import ConfigError, load_studio_config
+from studio_runtime.producer import ProducerError
+from studio_runtime.render import render_campaign
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="harness")
+    parser = argparse.ArgumentParser(prog="studio")
     subcommands = parser.add_subparsers(dest="command")
 
     validate = subcommands.add_parser("validate")
@@ -47,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def handle_validate(args: argparse.Namespace) -> None:
     theme_path = required_theme_path(args)
-    loaded = load_harness_config(campaign_path=args.campaign, brand_path=theme_path)
+    loaded = load_studio_config(campaign_path=args.campaign, brand_path=theme_path)
     print(
         f"OK: {args.campaign} uses repo theme '{loaded.brand.brand.id}' "
         f"theme {loaded.brand.version} "

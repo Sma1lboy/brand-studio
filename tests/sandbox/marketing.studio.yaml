@@ -31,7 +31,7 @@ campaign:
   path: packages/branding/marketing/campaigns/promo/example.campaign.yaml
 
 artifacts:
-  scratch: packages/branding/.harness/out
+  scratch: packages/branding/.studio/out
   approved: packages/branding/public/marketing
 
 state:

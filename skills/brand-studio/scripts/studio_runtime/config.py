@@ -216,7 +216,7 @@ def load_campaign(path: Path) -> tuple[CampaignConfig, dict[str, Any]]:
     return parse_campaign(raw, str(path)), raw
 
 
-def load_harness_config(
+def load_studio_config(
     campaign_path: Path,
     brand_path: Path,
 ) -> LoadedConfig:

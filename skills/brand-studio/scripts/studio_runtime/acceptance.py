@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from harness_runtime.manifest import checksum_file
+from studio_runtime.manifest import checksum_file
 
 
 @dataclass(frozen=True)

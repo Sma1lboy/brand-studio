@@ -21,7 +21,7 @@ VALUE_FLAGS = {
     "--outputs-dir",
 }
 DEFAULT_MARKETING_ROOT = "assets/marketing"
-DEFAULT_SCRATCH_DIR = ".harness/marketing/out"
+DEFAULT_SCRATCH_DIR = ".studio/marketing/out"
 DEFAULT_APPROVED_DIR = "public/marketing"
 PORTFOLIO_DOMAINS = ("release", "promo")
 # Fallbacks used only when metadata.brandStandard.* is absent.
@@ -43,7 +43,7 @@ CHANGELOG_LINK_DEF_RE = re.compile(r"^\[[^\]]+\]:\s")
 IGNORED_SCAN_DIRS = {
     ".dev-sandbox",
     ".git",
-    ".harness",
+    ".studio",
     ".kobe",
     ".next",
     ".nuxt",
@@ -82,7 +82,7 @@ def main() -> int:
         )
 
     if not args or args[0] in {"-h", "--help"}:
-        print_harness_help()
+        print_studio_help()
         return 0
 
     if args[0] == "org":
@@ -101,14 +101,14 @@ def bundled_cli_command() -> list[str]:
     return [sys.executable, str(Path(__file__).resolve().parent / "cli.py")]
 
 
-def print_harness_help() -> None:
+def print_studio_help() -> None:
     print(
         """
-usage: harness.py [--project-root DIR] [--metadata FILE] <command> [options]
+usage: studio.py [--project-root DIR] [--metadata FILE] <command> [options]
 
 Canonical Brand Studio commands:
   org init [--write] [target-dir]
-  repo init [--write] [--with-example] [target-dir]
+  repo init [--write] [target-dir]
   repo paths
   repo check
   repo state [--compact] [target-dir]
@@ -131,7 +131,7 @@ def org_command(
     metadata_path: str | None,
 ) -> int:
     if not args or args[0] in {"-h", "--help"}:
-        print("usage: harness.py org init [--write] [target-dir]")
+        print("usage: studio.py org init [--write] [target-dir]")
         return 0
     if args[0] == "init":
         return org_init(args[1:], metadata, metadata_path)
@@ -146,7 +146,7 @@ def repo_command(
 ) -> int:
     if not args or args[0] in {"-h", "--help"}:
         print(
-            "usage: harness.py repo "
+            "usage: studio.py repo "
             "{init,paths,check,state,validate,render,release,gen,handoff,settle,report,delete} ..."
         )
         return 0
@@ -185,7 +185,7 @@ def repo_release_command(
     metadata_path: str | None,
 ) -> int:
     if not args or args[0] in {"-h", "--help"}:
-        print("usage: harness.py repo release {copy,campaign,render} ...")
+        print("usage: studio.py repo release {copy,campaign,render} ...")
         return 0
     command_name = args[0]
     rest = args[1:]
@@ -236,20 +236,14 @@ def apply_metadata_args(args: list[str], metadata: dict[str, Any]) -> list[str]:
 
 def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     write = False
-    with_example = False
     target = "."
     remaining = list(args)
     while remaining:
         token = remaining.pop(0)
         if token == "--write":
             write = True
-        elif token == "--with-example":
-            with_example = True
         elif token in {"-h", "--help"}:
-            print(
-                "usage: harness.py repo init "
-                "[--write] [--with-example] [target-dir]"
-            )
+            print("usage: studio.py repo init [--write] [target-dir]")
             return 0
         elif token.startswith("-"):
             raise SystemExit(f"unknown repo init option: {token}")
@@ -284,8 +278,6 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
             directory.mkdir(parents=True, exist_ok=True)
         write_initial_state_files(plan, project_root, metadata)
         write_default_portfolio_patterns(plan["portfolios"])
-        if with_example:
-            copy_example(plan["marketing_root"])
 
     print_kv(
         {
@@ -306,9 +298,6 @@ def bootstrap_project(args: list[str], metadata: dict[str, Any], metadata_path: 
             "release_portfolio": plan["portfolios"]["release"]["accepted"].parent,
             "promo_portfolio": plan["portfolios"]["promo"]["accepted"].parent,
             "created": " ".join(str(path) for path in unique_paths(dirs)) if write else "",
-            "copied_example": str(plan["marketing_root"] / "examples" / "codefox")
-            if write and with_example
-            else "",
         }
     )
     if not write:
@@ -422,7 +411,7 @@ def org_init(args: list[str], metadata: dict[str, Any], metadata_path: str | Non
         elif token == "--dry-run":
             write = False
         elif token in {"-h", "--help"}:
-            print("usage: harness.py org init [--write] [target-dir]")
+            print("usage: studio.py org init [--write] [target-dir]")
             return 0
         elif token.startswith("-"):
             raise SystemExit(f"unknown org init option: {token}")
@@ -477,7 +466,7 @@ def org_init(args: list[str], metadata: dict[str, Any], metadata_path: str | Non
 
 
 def delete_candidate(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
-    usage = "usage: harness.py repo delete candidate --file FILE"
+    usage = "usage: studio.py repo delete candidate --file FILE"
     file_value: str | None = None
     remaining = list(args)
     while remaining:
@@ -537,7 +526,7 @@ def delete_candidate(args: list[str], metadata: dict[str, Any], metadata_path: s
 
 def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py repo settle --campaign NAME --asset-id ID "
+        "usage: studio.py repo settle --campaign NAME --asset-id ID "
         "--file FILE [--domain release|promo] [--source-kind KIND] "
         "[--asset-type TYPE] [--style-family NAME] [--checksum-sha256 SHA256] "
         "[--notes TEXT] [--tags a,b] [--plan FILE] [--update-asset-state]"
@@ -588,7 +577,10 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
     portfolio = paths["portfolios"][domain]
     run_lock = candidate.parent / "run.lock.json"
     expected_size = expected_asset_size(run_lock, asset_id)
-    if expected_size and metadata_result["size"] != expected_size:
+    # Only pixel assets (real, non-zero dimensions) are size-checked. Video,
+    # copy, and slide candidates settle on mime + checksum.
+    has_pixel_size = metadata_result["size"] != [0, 0]
+    if expected_size and has_pixel_size and metadata_result["size"] != expected_size:
         print(
             f"{candidate}: size mismatch; expected {expected_size[0]}x{expected_size[1]}, "
             f"got {metadata_result['size'][0]}x{metadata_result['size'][1]}",
@@ -663,6 +655,7 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
             "corpus": "approved",
             "accepted": "true",
             "domain": domain,
+            "modality": metadata_result["modality"],
             "source_kind": accepted_entry["source_kind"],
             "asset_type": accepted_entry["asset_type"],
             "style_family": accepted_entry["style_family"],
@@ -676,7 +669,7 @@ def accept_asset(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
 def asset_report(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py repo report --file FILE "
+        "usage: studio.py repo report --file FILE "
         "[--campaign NAME] [--asset-id ID]"
     )
     options = parse_asset_report_options(args, usage)
@@ -710,7 +703,7 @@ def asset_report(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
 def producer_handoff(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py repo handoff --campaign NAME "
+        "usage: studio.py repo handoff --campaign NAME "
         "--asset-id ID [--context FILE]"
     )
     options = parse_producer_handoff_options(args, usage)
@@ -775,6 +768,10 @@ def producer_handoff(args: list[str], metadata: dict[str, Any], metadata_path: s
         )
         return 1
 
+    backend = context.get("backend") if isinstance(context.get("backend"), dict) else {}
+    if not backend:
+        backend = resolve_backend(metadata, str(context.get("capability") or "image"))
+
     print_kv(
         {
             "mode": "handoff",
@@ -784,6 +781,9 @@ def producer_handoff(args: list[str], metadata: dict[str, Any], metadata_path: s
             "asset_id": asset_id,
             "producer_context": context_path,
             "producer_skill": producer_skill,
+            "backend_runner": str(backend.get("runner") or ""),
+            "backend_command": single_line(str(backend.get("command") or "")),
+            "backend_model": str(backend.get("model") or ""),
             "possible_cost": "true",
             "not_generated_yet": "true",
             "target": target,
@@ -973,6 +973,7 @@ def build_asset_report(
         "campaign": campaign,
         "asset_id": asset_id,
         "mime_type": file_metadata["mime_type"],
+        "modality": file_metadata["modality"],
         "size": size_text(file_metadata["size"]),
         "checksum_sha256": checksum,
         "accepted_state": paths["accepted_state"],
@@ -1115,7 +1116,7 @@ def single_line(value: str) -> str:
 
 def release_campaign(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py repo release campaign "
+        "usage: studio.py repo release campaign "
         "[--write] [--force] [--version VERSION] [--name NAME] "
         "[--releases COUNT] [--style STYLE] [--headline TEXT] [--changelog FILE] "
         "[--copy FILE] [--campaign FILE] [target-dir]"
@@ -1156,7 +1157,7 @@ def release_campaign(args: list[str], metadata: dict[str, Any], metadata_path: s
 
 def release_copy(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py repo release copy "
+        "usage: studio.py repo release copy "
         "[--write] [--force] [--version VERSION] [--name NAME] "
         "[--releases COUNT] [--headline TEXT] [--changelog FILE] "
         "[--copy FILE] [target-dir]"
@@ -1197,7 +1198,7 @@ def release_copy(args: list[str], metadata: dict[str, Any], metadata_path: str |
 
 def release_render(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
     usage = (
-        "usage: harness.py repo gen release "
+        "usage: studio.py repo gen release "
         "[--force] [--version VERSION] [--name NAME] [--releases COUNT] [--style STYLE] "
         "[--headline TEXT] [--changelog FILE] [--copy FILE] "
         "[--campaign FILE] [target-dir]"
@@ -2034,6 +2035,7 @@ def write_release_producer_context(
         "kind": "producer_context",
         "capability": "image",
         "producer_skill": producer_skill,
+        "backend": resolve_backend(metadata, "image"),
         "project_root": str(plan["project_root"]),
         "copy": str(plan["copy_path"]),
         "campaign": str(plan["campaign_path"]),
@@ -2375,9 +2377,9 @@ def producer_constraint_errors(args: list[str], metadata: dict[str, Any]) -> lis
     campaign_path = Path(resolve_project_path(project_root, campaign_value))
     theme_path = Path(resolve_project_path(project_root, theme_value))
     try:
-        from harness_runtime.config import load_harness_config
+        from studio_runtime.config import load_studio_config
 
-        loaded = load_harness_config(campaign_path=campaign_path, brand_path=theme_path)
+        loaded = load_studio_config(campaign_path=campaign_path, brand_path=theme_path)
     except Exception:
         return []
 
@@ -2534,7 +2536,7 @@ def print_state(args: list[str], metadata: dict[str, Any], metadata_path: str | 
         if token == "--compact":
             pretty = False
         elif token in {"-h", "--help"}:
-            print("usage: harness.py repo state [--compact] [target-dir]")
+            print("usage: studio.py repo state [--compact] [target-dir]")
             return 0
         elif token.startswith("-"):
             raise SystemExit(f"unknown repo state option: {token}")
@@ -2987,18 +2989,42 @@ def checksum_path(path: Path) -> str:
     return digest.hexdigest()
 
 
+# Asset modality by file extension. brand-studio settles any brand asset
+# uniformly — image, video, brand-tone copy, slide — not just images.
+MODALITY_EXTENSIONS = {
+    "image": {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"},
+    "video": {".mp4", ".m4v", ".mov", ".webm"},
+    "copy": {".md", ".txt", ".yaml", ".yml", ".json"},
+    "slide": {".html", ".pdf", ".pptx"},
+}
+
+
+def modality_for(path: Path) -> str:
+    suffix = path.suffix.lower()
+    for modality, suffixes in MODALITY_EXTENSIONS.items():
+        if suffix in suffixes:
+            return modality
+    return "other"
+
+
 def read_candidate_metadata(path: Path) -> dict[str, Any]:
     mime_type = mime_type_for(path)
+    modality = modality_for(path)
     if mime_type == "image/png":
         size, error = read_png_size(path)
     elif mime_type in {"image/jpeg", "image/jpg"}:
         size, error = read_jpeg_size(path)
     elif mime_type == "image/svg+xml":
         size, error = read_svg_size(path)
+    elif modality in {"image", "video", "copy", "slide"}:
+        # Known modality without a pixel-dimension reader (webp/gif/video/copy/
+        # slide): settle on mime + checksum; dimensions are not required.
+        size, error = None, None
     else:
         size, error = None, f"{path}: unsupported accepted asset format {path.suffix}"
     return {
         "mime_type": mime_type,
+        "modality": modality,
         "size": size or [0, 0],
         "error": error,
     }
@@ -3012,8 +3038,28 @@ def mime_type_for(path: Path) -> str:
         return "image/jpeg"
     if suffix == ".webp":
         return "image/webp"
+    if suffix == ".gif":
+        return "image/gif"
     if suffix == ".svg":
         return "image/svg+xml"
+    if suffix in {".mp4", ".m4v"}:
+        return "video/mp4"
+    if suffix == ".webm":
+        return "video/webm"
+    if suffix == ".mov":
+        return "video/quicktime"
+    if suffix == ".md":
+        return "text/markdown"
+    if suffix == ".txt":
+        return "text/plain"
+    if suffix in {".yaml", ".yml"}:
+        return "application/yaml"
+    if suffix == ".json":
+        return "application/json"
+    if suffix == ".html":
+        return "text/html"
+    if suffix == ".pdf":
+        return "application/pdf"
     return mimetypes.guess_type(path.name)[0] or "application/octet-stream"
 
 
@@ -3179,6 +3225,7 @@ def build_accepted_entry(
         "campaign": campaign,
         "asset_id": asset_id,
         "domain": domain,
+        "modality": metadata.get("modality") or "image",
         "source_kind": source_kind,
         "asset_type": asset_type,
         "style_family": style_family,
@@ -3373,15 +3420,6 @@ def relative_project_path(project_root: Path, path: Path | None) -> str:
         return path.resolve().relative_to(project_root.resolve()).as_posix()
     except ValueError:
         return str(path.resolve())
-
-
-def copy_example(marketing_root: Path) -> None:
-    example = Path(__file__).resolve().parents[1] / "examples" / "codefox"
-    target = marketing_root / "examples" / "codefox"
-    if not example.is_dir() or target.exists():
-        return
-    target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(example, target)
 
 
 def org_brand_standard_template(project_root: Path) -> str:
@@ -3585,6 +3623,38 @@ def string_at(metadata: dict[str, Any], *parts: str) -> str | None:
     if value in (None, ""):
         return None
     return str(value)
+
+
+# Capability -> backend modality key under metadata.backends. The studio runtime
+# only declares/threads a backend; it never executes one (running a backend such
+# as `codex exec` is a generation call and must stay in the producer subagent).
+CAPABILITY_BACKEND = {
+    "image": "text-to-image",
+    "logo": "text-to-image",
+    "social": "text-to-image",
+    "video": "text-to-video",
+    "slide": "text-to-slide",
+    "copy": "text-to-copy",
+}
+
+
+def resolve_backend(metadata: dict[str, Any], capability: str) -> dict[str, str]:
+    """Resolve the declared execution backend for a capability, or {} if none.
+
+    Returns a mapping with `modality` plus any of `runner`, `command`, `model`
+    declared under metadata.backends.<modality>. brand-studio never holds
+    credentials and never calls the backend; the producer subagent does.
+    """
+    modality = CAPABILITY_BACKEND.get(capability, capability)
+    backend = value_at(metadata, "backends", modality)
+    if not isinstance(backend, dict):
+        return {}
+    resolved: dict[str, str] = {"modality": modality}
+    for key in ("runner", "command", "model"):
+        value = backend.get(key)
+        if value not in (None, ""):
+            resolved[key] = str(value)
+    return resolved
 
 
 def bool_at(metadata: dict[str, Any], default: bool, *parts: str) -> bool:

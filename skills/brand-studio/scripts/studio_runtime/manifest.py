@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from harness_runtime.config import BrandLock, CampaignConfig
+from studio_runtime.config import BrandLock, CampaignConfig
 
 MANIFEST_SCHEMA_VERSION = "1.0"
 

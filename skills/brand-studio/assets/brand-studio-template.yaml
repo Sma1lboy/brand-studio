@@ -29,20 +29,32 @@ campaigns:
   promo: assets/marketing/campaigns/promo
 
 skills:
-  # Bind each capability to a locally installed producer skill (by name).
-  # Leave a value empty until you have selected and installed that producer.
+  # Bind each capability to a producer: a bundled producers/<id> or a locally
+  # installed skill name. Empty = unbound (never silently routed to image).
+  # See references/recommendations.yaml for suggested producers per capability.
   image: ""
-  design: ""
+  video: ""
+  copy: ""
   slide: ""
   logo: ""
   social: ""
+
+backends:
+  # Execution engine per modality. The studio runtime only declares/threads this;
+  # the producer subagent runs it. Credentials live in the runner's env, never
+  # here. Leave empty to let the bound producer skill use its own engine.
+  text-to-image:
+    runner: ""        # e.g. codex-exec | api | mcp | custom
+    command: ""       # e.g. "codex exec ..." (user-local CLI)
+    model: ""         # e.g. gpt-image-2
+  # text-to-video / text-to-slide / text-to-copy follow the same shape.
 
 campaign:
   name: launch
   path: assets/marketing/campaigns/promo/launch.campaign.yaml
 
 artifacts:
-  scratch: .harness/marketing/out
+  scratch: .studio/marketing/out
   approved: public/marketing
 
 state:

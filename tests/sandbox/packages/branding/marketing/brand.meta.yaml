@@ -8,8 +8,8 @@ brand:
   name: "CodeFox"
 metadata_version: "1.0.0"
 product:
-  category: "brand and marketing harness"
-  positioning: "A harness that turns locked brand tokens into versioned marketing assets."
+  category: "brand and marketing studio"
+  positioning: "A studio that turns locked brand tokens into versioned marketing assets."
   audience:
     - "project teams consuming accepted marketing artifacts"
     - "developers maintaining brand-consistent generation workflows"

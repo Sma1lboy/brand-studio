@@ -1,0 +1,324 @@
+schema_version: "1.0"
+kind: producer_recommendations
+
+# Pure reference catalog of external producer / reference skills, grouped by
+# capability. brand-studio references these by name; it does NOT auto-download,
+# clone, install, or vendor them as callable skills. The user installs/binds
+# what they want (or brand-studio bundles read-only instruction-grade producers
+# under producers/). See CLAUDE.md for the boundary.
+#
+# Star counts and "active" flags verified via the GitHub API on 2026-06-29;
+# they drift over time — treat as a maturity hint, not a contract.
+#
+# lane:
+#   generator  = produces an asset (image / video / slide / logo / social / copy)
+#   reference  = borrow UI convention / taste / color+typography only (NOT a generator)
+# format:
+#   skill        = real installable SKILL.md agent skill
+#   skill-pack   = repo bundling several SKILL.md skills
+#   skill-plugin = SKILL.md packaged as a plugin
+#   list         = curated index / awesome-list (reference material)
+# best: true     = current best pick for that capability
+
+capabilities:
+  image:
+    lane: generator
+    recommended:
+      - name: smixs/visual-skills
+        source: https://github.com/smixs/visual-skills
+        modality: image
+        format: skill-pack
+        stars: 60
+        best: true
+        note: >-
+          Multi-model image+video prompt-craft for Nano Banana (Gemini 3),
+          GPT Image 2, Seedance, Kling, Veo. Works in Claude Code / Cursor.
+      - name: jezweb/claude-skills (design-assets/ai-image-generator)
+        source: https://github.com/jezweb/claude-skills
+        modality: image
+        format: skill-plugin
+        stars: 885
+        note: Generates images via Gemini / GPT image APIs from prompts.
+      - name: JunSeo99/claude-skill-codex-imagegen
+        source: https://github.com/JunSeo99/claude-skill-codex-imagegen
+        modality: image
+        format: skill
+        note: Generates/edits images via Codex CLI gpt-image-2 (uses existing ChatGPT sub).
+      - name: wuyoscar/GPT-Image2-Skill
+        source: https://github.com/wuyoscar/GPT-Image2-Skill
+        modality: image
+        format: skill
+        note: GPT Image 2 prompt library + agentic skill for OpenAI image gen/edit.
+      - name: agentspace-so/agent-skills (gpt-image-2)
+        source: https://github.com/agentspace-so/agent-skills
+        modality: image
+        format: skill
+        stars: 12
+        note: gpt-image-2 generation skill (low maturity).
+
+  video:
+    lane: generator
+    recommended:
+      - name: remotion (packages/skills/skills/remotion)
+        source: https://github.com/remotion-dev/remotion
+        modality: video
+        format: skill
+        stars: 51700
+        best: true
+        note: >-
+          Programmatic React video — strongest deterministic branded motion
+          graphics. Heavy toolchain (npm package); do NOT vendor — install or
+          isolate. Daily commits.
+      - name: digitalsamba/claude-code-video-toolkit
+        source: https://github.com/digitalsamba/claude-code-video-toolkit
+        modality: video
+        format: skill-pack
+        stars: 1600
+        note: >-
+          AI-native generative video: voiceover (Qwen3-TTS), FLUX.2 imagery,
+          music, FFmpeg compose on your own GPU.
+      - name: wilwaldon/Claude-Code-Video-Toolkit
+        source: https://github.com/wilwaldon/Claude-Code-Video-Toolkit
+        modality: video
+        format: skill-pack
+        stars: 59
+        note: Curated stack — Remotion, Manim, screen-record, YouTube clip, FFmpeg post.
+      - name: browser-use/video-use
+        source: https://github.com/browser-use/video-use
+        modality: video
+        format: skill
+        stars: 12000
+        note: Edits real footage with agents (FFmpeg + ElevenLabs); raw footage to cut.
+
+  slide:
+    lane: generator
+    recommended:
+      - name: op7418/guizang-ppt-skill
+        source: https://github.com/op7418/guizang-ppt-skill
+        modality: slide
+        format: skill
+        stars: 19400
+        best: true
+        note: Horizontal single-HTML web PPT, magazine / Swiss style decks.
+      - name: zarazhangrui/frontend-slides
+        source: https://github.com/zarazhangrui/frontend-slides
+        modality: slide
+        format: skill-plugin
+        stars: 24000
+        note: Beautiful HTML presentations from scratch or from PPTX; agent-agnostic.
+      - name: anthropics/skills (pptx)
+        source: https://github.com/anthropics/skills
+        modality: slide
+        format: skill
+        stars: 156000
+        official: true
+        note: Official Anthropic PowerPoint create/edit skill — use when an editable .pptx is required.
+      - name: tristan-mcinnis/pptx-from-layouts-skill
+        source: https://github.com/tristan-mcinnis/pptx-from-layouts-skill
+        modality: slide
+        format: skill
+        note: PPTX from markdown using template master layouts.
+      - name: Gabberflast/academic-pptx-skill
+        source: https://github.com/Gabberflast/academic-pptx-skill
+        modality: slide
+        format: skill
+        stars: 615
+        note: Academic decks with action titles, exhibit discipline.
+
+  logo:
+    lane: generator
+    recommended:
+      - name: op7418/logo-generator-skill
+        source: https://github.com/op7418/logo-generator-skill
+        modality: logo
+        format: skill
+        stars: 1300
+        best: true
+        note: Logo generation skill (same author as guizang-ppt-skill).
+      - name: neonwatty/logo-designer-skill
+        source: https://github.com/neonwatty/logo-designer-skill
+        modality: logo
+        format: skill-plugin
+        stars: 35
+        note: Iterative SVG logo design (interview to export, parallel concepts, SVG to PNG); no API keys.
+      - name: rampstackco/claude-skills (brand-identity)
+        source: https://github.com/rampstackco/claude-skills
+        modality: logo
+        format: skill-pack
+        stars: 389
+        note: Full visual identity — logo, color, type, imagery, iconography, motion.
+
+  social:
+    lane: generator
+    recommended:
+      - name: itchernetski/threads-carousel-claude-skill
+        source: https://github.com/itchernetski/threads-carousel-claude-skill
+        modality: social
+        format: skill
+        stars: 67
+        best: true
+        note: Text post to visual carousel PNG/PDF for Threads / IG / LinkedIn / TikTok.
+      - name: rediumvex/social-media-caption-generator-claude
+        source: https://github.com/rediumvex/social-media-caption-generator-claude
+        modality: copy
+        format: skill
+        stars: 83
+        note: Text/script/screenshot to algorithm-optimized captions (IG / TikTok / Shorts).
+      - name: VicUgochukwu/brand-design-skill
+        source: https://github.com/VicUgochukwu/brand-design-skill
+        modality: social
+        format: skill
+        stars: 1
+        note: On-brand LinkedIn carousels / banners / article images with brand-guideline enforcement (early).
+      - name: guyaga/claude-code-social-media-skill
+        source: https://github.com/guyaga/claude-code-social-media-skill
+        modality: social
+        format: skill
+        note: Posts to platforms via Upload-Post API (distribution, not creation).
+
+  copy:
+    lane: generator
+    recommended:
+      - name: coreyhaines31/marketingskills
+        source: https://github.com/coreyhaines31/marketingskills
+        modality: copy
+        format: skill-pack
+        stars: 35500
+        best: true
+        note: CRO / copywriting / SEO / growth skills incl. copywriting; technical-marketer grade.
+      - name: OpenClaudia/openclaudia-skills
+        source: https://github.com/OpenClaudia/openclaudia-skills
+        modality: copy
+        format: skill-pack
+        stars: 522
+        note: 34 open-source marketing skills (content, email, ads, brand-voice).
+      - name: boraoztunc/skills
+        source: https://github.com/boraoztunc/skills
+        modality: copy
+        format: skill
+        stars: 134
+        note: Ogilvy-principle copywriting + brand voice (positioning, headlines, promise).
+      - name: ComposioHQ/awesome-claude-skills (brand-guidelines)
+        source: https://github.com/ComposioHQ/awesome-claude-skills
+        modality: copy
+        format: skill
+        note: Enforces brand voice / style-guide / messaging-pillar consistency (validator).
+
+  design-convention:
+    lane: reference
+    recommended:
+      - name: nextlevelbuilder/ui-ux-pro-max-skill
+        source: https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
+        modality: reference
+        format: skill
+        stars: 98000
+        best: true
+        note: Design-system reference — 50+ styles, 161 palettes, 57 font pairings, 161 product types.
+      - name: leonxlnx/taste-skill
+        source: https://github.com/leonxlnx/taste-skill
+        modality: reference
+        format: skill
+        stars: 53000
+        note: Design taste / convention reference.
+      - name: VoltAgent/awesome-claude-design
+        source: https://github.com/VoltAgent/awesome-claude-design
+        modality: reference
+        format: list
+        stars: 2900
+        note: 68 drop-in design-system inspirations in DESIGN.md format.
+      - name: zephyrwang6/brand-design-md
+        source: https://github.com/zephyrwang6/brand-design-md
+        modality: reference
+        format: skill
+        stars: 94
+        note: Design language of 62 world-class brands on demand (e.g. build X in Stripe style).
+      - name: bergside/awesome-design-skills
+        source: https://github.com/bergside/awesome-design-skills
+        modality: reference
+        format: list
+        stars: 1500
+        note: 67 curated DESIGN.md / SKILL.md design files index.
+      - name: alexpate/awesome-design-systems
+        source: https://github.com/alexpate/awesome-design-systems
+        modality: reference
+        format: list
+        stars: 25000
+        note: Reference list of real design systems.
+
+  color-typography:
+    lane: reference
+    recommended:
+      - name: ryanthedev/design-for-ai
+        source: https://github.com/ryanthedev/design-for-ai
+        modality: reference
+        format: skill-plugin
+        stars: 236
+        best: true
+        note: Teaches typography, color, composition, proportion, hierarchy to the agent.
+      - name: ComposioHQ/awesome-claude-skills (theme-factory)
+        source: https://github.com/ComposioHQ/awesome-claude-skills
+        modality: reference
+        format: skill
+        note: Curated font+color theme pairs applied to artifacts (Anthropic-origin).
+      - name: sliday/google-fonts-skill
+        source: https://github.com/sliday/google-fonts-skill
+        modality: reference
+        format: skill
+        stars: 5
+        note: Searches ~1,900 fonts, suggests pairs, emits CSS/Tailwind type system (MCP).
+
+  icon-illustration:
+    lane: generator
+    recommended:
+      - name: rampstackco/claude-skills (iconography)
+        source: https://github.com/rampstackco/claude-skills
+        modality: image
+        format: skill-pack
+        stars: 389
+        best: true
+        note: Brand stack incl. iconography direction; maintained, broad.
+      - name: jeremylongshore/claude-code-plugins-plus-skills (svg-icon-generator)
+        source: https://github.com/jeremylongshore/claude-code-plugins-plus-skills
+        modality: image
+        format: skill
+        note: Production-ready SVG icon code for web/UI.
+      - name: neonwatty/logo-designer-skill (SVG)
+        source: https://github.com/neonwatty/logo-designer-skill
+        modality: image
+        format: skill-plugin
+        stars: 35
+        note: SVG vector output overlaps icon/illustration.
+    note: >-
+      No single mature dedicated illustration skill found; illustration is mostly
+      covered by the image-generation skills plus SVG icon skills.
+
+# Multi-capability collections worth referencing wholesale (one repo, many modalities).
+collections:
+  - name: anthropics/skills
+    source: https://github.com/anthropics/skills
+    stars: 156000
+    official: true
+    note: Official pptx / docx / pdf skills.
+  - name: ComposioHQ/awesome-claude-skills
+    source: https://github.com/ComposioHQ/awesome-claude-skills
+    stars: 66000
+    note: Includes Anthropic-origin brand-guidelines, theme-factory, pptx.
+  - name: rampstackco/claude-skills
+    source: https://github.com/rampstackco/claude-skills
+    stars: 389
+    note: Full brand to content to ship lifecycle.
+  - name: davila7/claude-code-templates
+    source: https://github.com/davila7/claude-code-templates
+    stars: 28000
+    note: Marketing-campaign skill bundle.
+  - name: alirezarezvani/claude-skills
+    source: https://github.com/alirezarezvani/claude-skills
+    stars: 19000
+    note: 330+ skills incl. brand-voice analyzer.
+
+# Surfaced in search but NOT confirmed to exist (GitHub API returned nothing).
+# Do not register until the URL resolves.
+unverified:
+  - name: EvoLinkAI/gpt-image-2-gen-skill
+    source: https://github.com/EvoLinkAI/gpt-image-2-gen-skill
+    reason: GitHub API returned no repo on 2026-06-29.

@@ -46,8 +46,8 @@ Run the bundled state preflight before writing a production plan. Use
 `--project-root` when running from anywhere other than the product repo root:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata path/to/marketing.harness.yaml repo state
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml repo state
 ```
 
 Use the JSON as a read summary of the current org, repo, directory, portfolio,
@@ -140,15 +140,15 @@ For each accepted candidate:
 Agents should use the internal helper after acceptance:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata marketing.harness.yaml repo settle \
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata marketing.studio.yaml repo settle \
   --campaign launch \
   --asset-id web-banner \
   --domain promo \
   --source-kind campaign-brief \
   --asset-type hero \
   --style-family screen-first-field-scene \
-  --file .harness/marketing/out/launch/web-banner.png \
+  --file .studio/marketing/out/launch/web-banner.png \
   --checksum-sha256 <sha256>
 ```
 
@@ -204,7 +204,7 @@ accepted:
     style_family: "screen-first-field-scene"
     path: "public/marketing/launch/web-banner.png"
     manifest: "public/marketing/launch/manifest.json"
-    run_lock: ".harness/marketing/out/launch/run.lock.json"
+    run_lock: ".studio/marketing/out/launch/run.lock.json"
     checksum_sha256: "..."
     tags: ["launch", "web-banner", "accepted"]
     notes: "Accepted by the user for the launch campaign."

@@ -69,16 +69,16 @@ During image-first init, the agent uses its own image-reading capability to
 derive the initial palette, typography direction, visual language, avoid list,
 and style aliases. If no images are attached, it scans the declared asset roots
 once for image files instead of requiring a separate init-assets path or role
-schema. It writes `marketing.harness.yaml`, `assets/marketing/brief.md`,
+schema. It writes `marketing.studio.yaml`, `assets/marketing/brief.md`,
 `assets/marketing/theme.md`, a promo preview campaign, and initial state files,
 then runs the existing launcher for validation and dry-run rendering. The
-harness itself does not analyze images or call vision APIs.
+studio itself does not analyze images or call vision APIs.
 
 The installed skill contains a launcher:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata marketing.harness.yaml ...
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata marketing.studio.yaml ...
 ```
 
 The launcher keeps paths rooted in the current product repo and runs the bundled
@@ -106,7 +106,7 @@ public/marketing/
   <channel-or-format>/
     asset-state.yaml
   <approved assets and manifests>
-.harness/marketing/out/
+.studio/marketing/out/
 ```
 
 - `project.marketingRoot` is editable source input: theme notes, campaign YAML,
@@ -127,8 +127,8 @@ variants, X/XHS cards, or social images, run the read-only state preflight and
 use that output in the production plan:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata path/to/marketing.harness.yaml state
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml state
 ```
 
 After the user accepts exact live candidates, agents may use the internal
@@ -151,8 +151,8 @@ the canonical text asset; it does not write a separate `key_points` block.
 Generate only the text asset when you want to review or revise the wording:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml \
   release-copy --write --releases 4
 ```
 
@@ -163,8 +163,8 @@ from the changelog. The resulting `producer-context.json` is the handoff to the
 metadata-selected image producer skill:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata path/to/marketing.harness.yaml \
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml \
   release-render --releases 4
 ```
 
@@ -199,8 +199,8 @@ exact files or asset ids.
 ```bash
 uv run ruff check .
 uv run pytest
-cd skills/brand-studio/examples/codefox
-uv run python ../../scripts/harness.py --project-root "$PWD" --metadata marketing.harness.yaml repo validate
+cd tests/sandbox
+uv run python ../../skills/brand-studio/scripts/studio.py --project-root "$PWD" --metadata marketing.studio.yaml repo validate
 ```
 
 Use the checked-in skill payload directly through a fork, submodule, or local

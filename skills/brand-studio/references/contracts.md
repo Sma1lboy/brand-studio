@@ -1,4 +1,4 @@
-# Harness Contracts
+# Studio Contracts
 
 ## Theme
 
@@ -29,7 +29,7 @@ Token rules:
 - Alias references may only use `{global.path.to-token}`.
 - Use kebab-case token and group names.
 - Changing producer params or visual tokens requires a version bump and dry-run review.
-- `producer.model` is optional. The marketing harness only passes it through when present.
+- `producer.model` is optional. The marketing studio only passes it through when present.
 
 `repo.version` is the theme lock version for this repo's visual asset tree.
 Generating a campaign does not bump it. Change it only when locked visual
@@ -111,7 +111,7 @@ sources:
     - id: "sibling-product"
       kind: "same-org-product"
       root: "../sibling-product"
-      metadata: "assets/marketing.harness.yaml"
+      metadata: "assets/marketing.studio.yaml"
       state: "assets/marketing/accepted.yaml"
 ```
 
@@ -123,8 +123,8 @@ When commands may run outside the product repo, pass `--project-root`; metadata
 relative paths are resolved under that root:
 
 ```bash
-python3 "$SKILL_ROOT/scripts/harness.py" --project-root "$PWD" \
-  --metadata marketing.harness.yaml <command>
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata marketing.studio.yaml <command>
 ```
 
 ## Skill Forks And Shared Metadata
@@ -210,7 +210,7 @@ id: "feature-x-launch"
 created_at: "2026-06-19T00:00:00Z"
 objective: "Generate launch assets for feature X."
 inputs:
-  state_preflight: ".harness/marketing/state/feature-x-launch.json"
+  state_preflight: ".studio/marketing/state/feature-x-launch.json"
   theme: "assets/marketing/theme.md"
   campaign: "assets/marketing/campaigns/promo/feature-x-launch.campaign.yaml"
   asset_index: "assets/marketing/asset-state.yaml"
@@ -379,8 +379,8 @@ user acceptance:
       "id": "web-banner",
       "file": "web-banner.png",
       "path": "public/marketing/feature-x-launch/web-banner.png",
-      "source_path": ".harness/marketing/out/feature-x-launch/web-banner.png",
-      "run_lock": ".harness/marketing/out/feature-x-launch/run.lock.json",
+      "source_path": ".studio/marketing/out/feature-x-launch/web-banner.png",
+      "run_lock": ".studio/marketing/out/feature-x-launch/run.lock.json",
       "size": [1920, 608],
       "mime_type": "image/png",
       "checksum_sha256": "..."
@@ -411,7 +411,7 @@ accepted:
     style_family: "screen-first-field-scene"
     path: "public/marketing/feature-x-launch/web-banner.png"
     manifest: "public/marketing/feature-x-launch/manifest.json"
-    run_lock: ".harness/marketing/out/feature-x-launch/run.lock.json"
+    run_lock: ".studio/marketing/out/feature-x-launch/run.lock.json"
     checksum_sha256: "..."
     tags: ["launch", "web-banner"]
     notes: "Accepted by the user after review."

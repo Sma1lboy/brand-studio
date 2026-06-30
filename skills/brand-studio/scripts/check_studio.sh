@@ -11,8 +11,8 @@ else
 fi
 
 if [ -z "$python_path" ]; then
-  echo "check_harness.sh: python3 or python is required" >&2
+  echo "check_studio.sh: python3 or python is required" >&2
   exit 1
 fi
 
-exec "$python_path" "$script_dir/harness.py" repo check "$@"
+exec "$python_path" "$script_dir/studio.py" repo check "$@"

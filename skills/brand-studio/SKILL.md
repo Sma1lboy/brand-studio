@@ -433,6 +433,35 @@ and return data only (path, mime, dims, checksum). Subagents cannot prompt the
 user, so all approval happens in main before fan-out. A single deliverable with
 one producer can run inline. See `CLAUDE.md` for the full boundary.
 
+## Interactive Generation & Review Loop
+
+Generation is a smooth, end-to-end human-in-the-loop loop. Never dump raw files
+on the user or stop at scratch — always **generate → preview → ask → settle →
+offer the next round**. The user only makes taste calls (which ones); they never
+wrangle files.
+
+1. **Generate** — fan out producers/backends in parallel (one subagent or
+   `codex exec` per candidate, each writing a distinct output file so they do not
+   collide). For image backends, attach the brand's reference assets as visual
+   inputs (e.g. `codex exec -i <asset>`) so candidates inherit the real visual
+   language, not just text tokens. Pull those references from the declared asset
+   roots / `theme.references`, not ad hoc.
+2. **Preview (HTML, default)** — render one self-contained HTML page that grids
+   the candidates with a one-line rationale each and the references they used,
+   then show it: screenshot it (headless browser needs `http://`, not `file://`)
+   or `open` it for the user. An HTML preview is the **default** presentation for
+   any multi-candidate output.
+3. **Ask (AskUserQuestion)** — present the candidates as a **multi-select**
+   AskUserQuestion so the user picks which to accept. Do not infer the choice.
+4. **Settle** — for each accepted candidate, run `repo settle` into the matching
+   portfolio (release/promo) with its `modality` and domain. Unpicked candidates
+   stay in scratch (or are deleted only on request).
+5. **Next round** — offer to iterate: refine a pick, try a new direction/style,
+   or pull in a new reference element. Loop until the user is done.
+
+Keep every multi-candidate task on this loop so the experience stays smooth and
+nothing accepted is lost or left un-settled.
+
 ## Style Production
 
 When a design skill, Claude, Codex, or a human produces style, freeze the

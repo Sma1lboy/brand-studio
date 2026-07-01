@@ -472,8 +472,14 @@ flowchart LR
   C["5 borrowed UI conventions<br/>convention, not technique"] --> W
   D["6 deliverable content<br/>brief · headline · subject · size"] --> W
   U["7 user direction<br/>round feedback / taste"] --> W
+  SB["8 sibling-project assets<br/>sources.relatedRepos (org family DNA)"] --> W
   W[["brand weight<br/>producer-context.json"]] --> G["generate"]
 ```
+
+For a **new** product with little of its own accepted corpus, inputs 1 and 8 (org
+standard + sibling-project assets) carry the family look — pull siblings from
+`sources.relatedRepos` so the new marks share the org's DNA instead of drifting
+into generic app-icon territory.
 
 Each input's source and contribution is tabled in `CLAUDE.md` ("What brand weight
 is made of"). The runtime gathers these into one structured handoff; it never

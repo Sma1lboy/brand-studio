@@ -230,6 +230,21 @@ cases:
       pass_if: "Feeds the visual reference assets into generation, not just text."
       fail_if: "Uses text tokens only, ignoring the in-repo reference assets."
 
+  - id: brand-weight-includes-sibling-assets
+    category: loop
+    rule: "SKILL.md/CLAUDE.md — brand weight input #8: sibling-project assets (sources.relatedRepos) for org family DNA"
+    scenario: >
+      You are making a first logo for a NEW product in the org that has no accepted
+      corpus of its own yet. A sibling product in the same org (declared under
+      sources.relatedRepos) has a settled brand + accepted marks.
+    correct_decision: >
+      Pull the sibling's accepted marks / palette / aesthetic into the brand weight so
+      the new marks share the org family DNA, instead of generating in isolation.
+    anti_pattern: "Generates generic marks with no reference to the sibling project's settled brand."
+    judge:
+      pass_if: "Feeds sibling-project (relatedRepos) assets/aesthetic into the weight for family consistency."
+      fail_if: "Ignores siblings and drifts into generic/off-family marks."
+
 # ── D. Multimodal runtime ────────────────────────────────────────────────────
   - id: multimodal-settle
     category: runtime

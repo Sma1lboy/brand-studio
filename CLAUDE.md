@@ -184,13 +184,19 @@ Naming them makes the loop precise:
 | 5 | **borrowed UI conventions** | referenced design/producer skills | layout/hierarchy/spacing conventions — **borrow convention, not technique** |
 | 6 | **deliverable content** | campaign brief + `content` (headline, subject) + deliverable spec (id, size, modality) | what this specific piece must say/show |
 | 7 | **user direction** | the round's next-direction + taste feedback | human steering for this round |
+| 8 | **sibling-project assets** | local sibling/related repos declared under `sources.relatedRepos` | cross-project family DNA — a new product's marks should feel of the same org family as its siblings (e.g. an existing sibling's accepted marks + palette inform a new one) |
 
 ```
 brand weight = 1 org standard + 2 theme fields + 3 reference assets
              + 4 domain accepted samples + 5 borrowed conventions
-             + 6 deliverable content + 7 user direction
+             + 6 deliverable content + 7 user direction + 8 sibling-project assets
              − unless the user names a specific skill's specific method
 ```
+
+For a **new** product with little of its own accepted corpus, inputs 1 and 8 (org
+standard + sibling-project assets) carry the family look — pull them from
+`sources.relatedRepos` so the new marks share the org's DNA rather than drifting
+into generic app-icon territory.
 
 brand-studio never fixes the *technique*. It settles brand facts, gathers these
 inputs, packages them as one structured handoff (`producer-context.json`), and

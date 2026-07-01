@@ -460,12 +460,23 @@ flowchart LR
   T --> S
 ```
 
-1. **Generate** — fan out producers/backends in parallel (one subagent or
-   `codex exec` per candidate, each writing a distinct output file so they do not
-   collide). For image backends, attach the brand's reference assets as visual
-   inputs (e.g. `codex exec -i <asset>`) so candidates inherit the real visual
-   language, not just text tokens. Pull those references from the declared asset
-   roots / `theme.references`, not ad hoc.
+1. **Generate — actively choose methods, never default to one.** Before fanning
+   out, **survey what's available and think about which producers/backends fit
+   *this* deliverable**: the bundled `producers/` (via `catalog.py`), installed
+   skills, `references/recommendations.yaml`, and the configured `backends`. One
+   goal usually has **several genuinely different methods** — a logo, say, can
+   come from an SVG logo skill, a text-to-image backend (gpt-image-2), *or*
+   **remotion** (programmatic / animated mark); a promo can be a still image *or*
+   a remotion video. Do not lock the whole round to a single method (e.g. only
+   gpt-image-2) just because it's the obvious default — **fan out across the
+   methods that would give meaningfully different candidates**, and say which
+   method each candidate used. Then: one subagent / `codex exec` per candidate,
+   distinct output files so they don't collide, **all in parallel** (no
+   concurrency cap). For image backends, attach the brand's reference assets as
+   visual inputs (e.g. `codex exec -i <asset>`), pulled from the declared asset
+   roots / `theme.references`, so candidates inherit the real visual language,
+   not just text tokens. If no method clearly fits, ask the user (see Producer
+   selection); hybrid across methods is encouraged.
 2. **Preview — the standard review template (required every round)** — render
    the candidates into `assets/round-review.html`, the reusable, data-driven
    review board. Write a per-round `round.json` beside it and open

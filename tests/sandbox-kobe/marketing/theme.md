@@ -60,8 +60,11 @@ global:
       $value: "cropped headline, cropped kobe wordmark, letters cut off at the frame edge, huge foreground astronaut helmet, person touching frame edges, official Anthropic logo, standalone Claude logo outside the terminal UI, basketball imagery, celebrity likeness, robot mascot, glossy SaaS cards, browser chrome, unreadable terminal gibberish, excessive neon, malformed main headline, watermark"
       $type: "text"
   reference:
-    clean-tui: { $value: "marketing/references/kobe-tui-clean.png", $type: "asset" }
-    actual-tui: { $value: "marketing/references/kobe-tui-actual.png", $type: "asset" }
+    # References live in the kobe PRODUCT repo, not this org skill repo. They are
+    # declared as product-repo paths (the runtime uses them as prompt strings, not
+    # files), so no product asset is embedded here.
+    clean-tui: { $value: "kobe:workspace/products/kobe/kobe/references/kobe-tui-clean.png", $type: "asset" }
+    actual-tui: { $value: "kobe:workspace/products/kobe/kobe/references/kobe-tui-actual.png", $type: "asset" }
 
 alias:
   style:

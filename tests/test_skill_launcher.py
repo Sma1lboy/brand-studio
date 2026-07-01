@@ -959,7 +959,12 @@ deliverables:
 """.lstrip(),
         encoding="utf-8",
     )
-    metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
+    meta = metadata(project)
+    meta["weightProfiles"] = {
+        "default": "promo-default",
+        "promo-default": {"history": 30, "request": 30, "org": 10, "producer": 30},
+    }
+    metadata_path.write_text(json.dumps(meta), encoding="utf-8")
 
     completed = subprocess.run(
         [
@@ -986,6 +991,36 @@ deliverables:
     assert producer_context["kind"] == "producer_context"
     assert producer_context["weight_profile"] == "promo-default"
     assert producer_context["assets"][0]["id"] == "web-banner"
+
+    prompt = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "prompt",
+            "--campaign",
+            "launch",
+            "--asset-id",
+            "web-banner",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert prompt.returncode == 0, prompt.stderr
+    assert "Weight profile: promo-default (history30/request30/org10/producer30)" in prompt.stdout
+    assert "Use these weights as soft source-priority hints, not arithmetic control." in (
+        prompt.stdout
+    )
+    assert "Theme resolved_style is a hard brand constraint." in prompt.stdout
+    assert "Deliverable: web-banner 320x128" in prompt.stdout
+    assert "Target output:" in prompt.stdout
+    assert "Locked style:" in prompt.stdout
+    assert "clean editorial product lighting" in prompt.stdout
+    assert "Asset prompt:" in prompt.stdout
 
 
 def test_release_render_reads_monorepo_package_changelog_and_renders(tmp_path: Path) -> None:

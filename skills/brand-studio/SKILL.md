@@ -356,6 +356,7 @@ Prefer the canonical command surface:
 | dry render | `repo render --dry-run` |
 | release copy review | `repo release copy --write --releases 4` |
 | `gen-repo` release | `repo gen release --releases 4 --changelog <file>` |
+| producer prompt | `repo prompt --campaign <name> --asset-id <id>` |
 | producer handoff | `repo handoff --campaign <name> --asset-id <id>` |
 | `settle-repo` | `repo settle --campaign <name> --asset-id <id> --file <path>` |
 | report | `repo report --file <path>` |
@@ -641,6 +642,20 @@ python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
 Use this to read `producer-context.json`, validate the selected asset's prompt,
 size, format, producer skill, and target scratch path, and print
 `not_generated_yet=true`. This helper never calls the producer.
+
+Internal producer prompt helper, after dry-run and before any paid/live
+producer call:
+
+```bash
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata marketing.studio.yaml repo prompt \
+  --campaign launch \
+  --asset-id web-banner
+```
+
+Use this to render the final text prompt from `producer-context.json`, the
+selected asset, resolved style, and metadata `weightProfiles`. This helper
+prints prompt text only; it never calls the producer or backend.
 
 Internal acceptance helper, after the user has accepted a concrete candidate:
 

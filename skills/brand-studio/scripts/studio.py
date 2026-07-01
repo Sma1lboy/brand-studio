@@ -25,6 +25,13 @@ DEFAULT_SCRATCH_DIR = ".studio/marketing/out"
 DEFAULT_APPROVED_DIR = "public/marketing"
 DEFAULT_WEIGHT_PROFILE = "promo-default"
 PORTFOLIO_DOMAINS = ("release", "promo")
+SOURCE_LABELS = {
+    "history": "previous accepted assets and matching portfolio memory",
+    "request": "current user request and campaign brief/content",
+    "org": "organization brand standard and shared org-fork conventions",
+    "copy": "release copy asset and version facts",
+    "producer": "selected producer/subskill composition convention",
+}
 # Fallbacks used only when metadata.brandStandard.* is absent.
 FALLBACK_ORG_BRAND_STANDARD = "public/brand/brand-standard.md"
 FALLBACK_ORG_THEME_BASE = "public/brand/theme.base.md"
@@ -118,6 +125,7 @@ Canonical Brand Studio commands:
   repo release copy [--write] [--releases N]
   repo release campaign [--write]
   repo gen release [--changelog FILE] [--releases N]
+  repo prompt --campaign NAME --asset-id ID
   repo handoff --campaign NAME --asset-id ID
   repo settle --campaign NAME --asset-id ID --file FILE [--checksum-sha256 SHA256]
   repo report --file FILE
@@ -148,7 +156,8 @@ def repo_command(
     if not args or args[0] in {"-h", "--help"}:
         print(
             "usage: studio.py repo "
-            "{init,paths,check,state,validate,render,release,gen,handoff,settle,report,delete} ..."
+            "{init,paths,check,state,validate,render,release,gen,prompt,handoff,"
+            "settle,report,delete} ..."
         )
         return 0
     command_name = args[0]
@@ -168,6 +177,8 @@ def repo_command(
         return repo_release_command(rest, metadata, metadata_path)
     if command_name == "gen" and rest[:1] == ["release"]:
         return release_render(rest[1:], metadata, metadata_path)
+    if command_name == "prompt":
+        return producer_prompt(rest, metadata, metadata_path)
     if command_name == "handoff":
         return producer_handoff(rest, metadata, metadata_path)
     if command_name == "settle":
@@ -803,6 +814,125 @@ def producer_handoff(args: list[str], metadata: dict[str, Any], metadata_path: s
     return 0
 
 
+def producer_prompt(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    usage = (
+        "usage: studio.py repo prompt --campaign NAME "
+        "--asset-id ID [--context FILE]"
+    )
+    options = parse_producer_prompt_options(args, usage)
+    if isinstance(options, str):
+        print(options, file=sys.stderr)
+        return 1
+
+    project_root = project_root_for(metadata)
+    paths = project_paths(metadata, project_root)
+    campaign = str(options["campaign"])
+    asset_id = str(options["asset_id"])
+    context_path = (
+        Path(resolve_project_path(project_root, options["context"]))
+        if options.get("context")
+        else paths["scratch_dir"] / campaign / "producer-context.json"
+    )
+    try:
+        context = json.loads(context_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        print(f"{context_path}: producer context not found: {exc}", file=sys.stderr)
+        return 1
+    except json.JSONDecodeError as exc:
+        print(f"{context_path}: invalid producer context JSON: {exc}", file=sys.stderr)
+        return 1
+    if not isinstance(context, dict) or context.get("kind") != "producer_context":
+        print(f"{context_path}: expected kind=producer_context", file=sys.stderr)
+        return 1
+
+    asset = producer_context_asset(context, asset_id)
+    if asset is None:
+        print(f"{context_path}: asset id not found: {asset_id}", file=sys.stderr)
+        return 1
+
+    print(build_producer_prompt(metadata, context, asset, metadata_path=metadata_path))
+    return 0
+
+
+def build_producer_prompt(
+    metadata: dict[str, Any],
+    context: dict[str, Any],
+    asset: dict[str, Any],
+    *,
+    metadata_path: str | None,
+) -> str:
+    portfolio = context.get("portfolio") if isinstance(context.get("portfolio"), dict) else {}
+    resolved_style = (
+        context.get("resolved_style") if isinstance(context.get("resolved_style"), dict) else {}
+    )
+    domain = str(portfolio.get("domain") or "promo")
+    profile_name = str(context.get("weight_profile") or weight_profile_for(metadata, domain))
+    profile = value_at(metadata, "weightProfiles", profile_name)
+    profile_suffix = f" ({compact_weight_profile(profile)})" if isinstance(profile, dict) else ""
+    size = asset.get("size")
+
+    lines = [
+        f"Weight profile: {profile_name}{profile_suffix}.",
+        "Use these weights as soft source-priority hints, not arithmetic control.",
+        "Theme resolved_style is a hard brand constraint.",
+        "",
+        "Source meanings:",
+    ]
+    if isinstance(profile, dict):
+        for key, value in profile.items():
+            lines.append(f"- {key}: {value}, {SOURCE_LABELS.get(str(key), str(key))}")
+    else:
+        lines.append("- profile weights unavailable in metadata; use fixed source semantics.")
+
+    lines.extend(
+        [
+            "",
+            f"Metadata: {metadata_path or ''}",
+            f"Producer context: {context.get('run_lock', '')}",
+            f"Portfolio domain: {domain}",
+            f"Campaign: {context.get('campaign', '')}",
+            f"Deliverable: {asset.get('id', '')} {size_text(size)}",
+            f"Target output: {asset.get('target_path', '')}",
+            "",
+            "Locked style:",
+            str(resolved_style.get("prompt") or ""),
+            "",
+            "Palette:",
+            comma_list(resolved_style.get("palette")),
+            "",
+            "Typography:",
+            str(resolved_style.get("typography") or ""),
+            "",
+            "References:",
+            comma_list(resolved_style.get("references")),
+            "",
+            "Avoid:",
+            str(resolved_style.get("negative") or asset.get("negative_prompt") or ""),
+            "",
+            "Asset prompt:",
+            str(asset.get("prompt") or ""),
+        ]
+    )
+    return "\n".join(lines)
+
+
+def compact_weight_profile(profile: object) -> str:
+    if not isinstance(profile, dict):
+        return ""
+    parts: list[str] = []
+    for key, value in profile.items():
+        if value in (None, ""):
+            continue
+        parts.append(f"{key}{value}")
+    return "/".join(parts)
+
+
+def comma_list(value: object) -> str:
+    if not isinstance(value, list):
+        return ""
+    return ", ".join(str(item) for item in value if item not in (None, ""))
+
+
 def parse_accept_options(args: list[str], usage: str) -> dict[str, Any] | str:
     options: dict[str, Any] = {
         "campaign": "",
@@ -889,6 +1019,21 @@ def parse_producer_handoff_options(args: list[str], usage: str) -> dict[str, Any
         args,
         usage=usage,
         command_name="repo handoff",
+        value_options={
+            "--campaign": "campaign",
+            "--asset-id": "asset_id",
+            "--context": "context",
+        },
+        defaults={"campaign": "", "asset_id": "", "context": ""},
+        required=("campaign", "asset_id"),
+    )
+
+
+def parse_producer_prompt_options(args: list[str], usage: str) -> dict[str, Any] | str:
+    return parse_value_options(
+        args,
+        usage=usage,
+        command_name="repo prompt",
         value_options={
             "--campaign": "campaign",
             "--asset-id": "asset_id",

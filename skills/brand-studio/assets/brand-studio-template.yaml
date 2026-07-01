@@ -49,6 +49,27 @@ backends:
     model: ""         # e.g. gpt-image-2
   # text-to-video / text-to-slide / text-to-copy follow the same shape.
 
+weightProfiles:
+  # Producers resolve this profile from metadata and apply their fixed source
+  # interpretation rules. producer-context.json carries only the profile name.
+  default: promo-default
+  promo-default:
+    history: 30
+    request: 30
+    org: 10
+    producer: 30
+  release-default:
+    history: 20
+    request: 25
+    copy: 35
+    org: 10
+    producer: 10
+  logo-default:
+    history: 20
+    request: 20
+    org: 30
+    producer: 30
+
 campaign:
   name: launch
   path: assets/marketing/campaigns/promo/launch.campaign.yaml

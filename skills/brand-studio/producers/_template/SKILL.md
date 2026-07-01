@@ -14,7 +14,10 @@ name starts with `_`, so this entry never appears in the routing registry.
 Document, for the reading agent:
 
 - **Inputs it expects** — the structured brand weight (palette, typography,
-  references, avoid, accepted samples) plus the deliverable spec.
+  references, avoid, accepted samples) plus the deliverable spec. Resolve
+  `producer-context.json` `weight_profile` through metadata `weightProfiles`;
+  use `history`/`request`/`org`/`copy`/`producer` as soft priority hints while
+  treating resolved `theme.md` style facts as hard constraints.
 - **What it produces** — the optimal prompt / composition for its `modality`.
   For `lane: generator`, the configured `backend` renders the pixels; this
   producer yields prompt-craft, not the final asset. For `lane: reference`,

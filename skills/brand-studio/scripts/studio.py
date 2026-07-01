@@ -23,6 +23,7 @@ VALUE_FLAGS = {
 DEFAULT_MARKETING_ROOT = "assets/marketing"
 DEFAULT_SCRATCH_DIR = ".studio/marketing/out"
 DEFAULT_APPROVED_DIR = "public/marketing"
+DEFAULT_WEIGHT_PROFILE = "promo-default"
 PORTFOLIO_DOMAINS = ("release", "promo")
 # Fallbacks used only when metadata.brandStandard.* is absent.
 FALLBACK_ORG_BRAND_STANDARD = "public/brand/brand-standard.md"
@@ -207,6 +208,11 @@ def run_repo_render_command(args: list[str], metadata: dict[str, Any]) -> int:
             print(error, file=sys.stderr)
         return 1
     completed = subprocess.run([*bundled_cli_command(), *command_args], check=False)
+    if completed.returncode == 0 and command_args[0] == "render" and "--dry-run" in command_args:
+        context_result = write_render_producer_context(command_args, metadata)
+        if context_result["error"]:
+            print(context_result["error"], file=sys.stderr)
+            return 1
     return completed.returncode
 
 
@@ -1981,10 +1987,82 @@ def write_release_producer_context(
 ) -> dict[str, object]:
     output_dir = Path(str(plan["output_dir"]))
     project_root = Path(str(plan["project_root"]))
+    context_path = output_dir / "producer-context.json"
+    producer_skill = string_at(metadata, "skills", "image") or ""
+    result = write_producer_context(
+        metadata=metadata,
+        project_root=project_root,
+        output_dir=output_dir,
+        context_path=context_path,
+        campaign_path=Path(str(plan["campaign_path"])),
+        domain="release",
+        copy_path=Path(str(plan["copy_path"])),
+    )
+    if result["error"]:
+        return {"path": context_path, "producer_skill": producer_skill, "error": result["error"]}
     paths = project_paths(metadata, project_root)
     release_portfolio = paths["portfolios"]["release"]
-    run_lock_path = output_dir / "run.lock.json"
+    return {
+        "path": context_path,
+        "producer_skill": producer_skill,
+        "portfolio": "release",
+        "portfolio_accepted": release_portfolio["accepted"],
+        "portfolio_asset_state": release_portfolio["asset_state"],
+        "error": "",
+    }
+
+
+def write_render_producer_context(
+    command_args: list[str],
+    metadata: dict[str, Any],
+) -> dict[str, object]:
+    project_root = project_root_for(metadata)
+    campaign_value = first_positional(command_args, start=1)
+    theme_value = option_value(command_args, "--theme") or theme_source_path(metadata, project_root)
+    outputs_value = option_value(command_args, "--outputs-dir") or DEFAULT_SCRATCH_DIR
+    producer_skill = string_at(metadata, "skills", "image") or ""
+    if not campaign_value:
+        return {"producer_skill": producer_skill, "error": "render campaign path is required"}
+    if not theme_value:
+        return {"producer_skill": producer_skill, "error": "render theme path is required"}
+
+    campaign_path = Path(resolve_project_path(project_root, campaign_value))
+    theme_path = Path(resolve_project_path(project_root, theme_value))
+    outputs_dir = Path(resolve_project_path(project_root, outputs_value))
+    try:
+        from studio_runtime.config import load_studio_config
+
+        loaded = load_studio_config(campaign_path=campaign_path, brand_path=theme_path)
+    except Exception as exc:
+        return {
+            "producer_skill": producer_skill,
+            "error": f"{campaign_path}: cannot resolve render context: {exc}",
+        }
+
+    output_dir = outputs_dir / loaded.campaign.name
     context_path = output_dir / "producer-context.json"
+    return write_producer_context(
+        metadata=metadata,
+        project_root=project_root,
+        output_dir=output_dir,
+        context_path=context_path,
+        campaign_path=campaign_path,
+        domain=campaign_domain_for_path(metadata, project_root, campaign_path),
+        copy_path=None,
+    )
+
+
+def write_producer_context(
+    *,
+    metadata: dict[str, Any],
+    project_root: Path,
+    output_dir: Path,
+    context_path: Path,
+    campaign_path: Path,
+    domain: str,
+    copy_path: Path | None,
+) -> dict[str, object]:
+    run_lock_path = output_dir / "run.lock.json"
     producer_skill = string_at(metadata, "skills", "image") or ""
     if not run_lock_path.is_file():
         return {
@@ -2004,55 +2082,24 @@ def write_release_producer_context(
 
     producer = run_lock.get("producer") if isinstance(run_lock, dict) else {}
     producer = producer if isinstance(producer, dict) else {}
-    params = producer.get("params") if isinstance(producer.get("params"), dict) else {}
-    output_format = str(params.get("output_format") or "png")
-
-    assets: list[dict[str, Any]] = []
-    raw_assets = run_lock.get("assets") if isinstance(run_lock, dict) else []
-    if isinstance(raw_assets, list):
-        for raw_asset in raw_assets:
-            if not isinstance(raw_asset, dict):
-                continue
-            asset_id = str(raw_asset.get("id") or "")
-            if not asset_id:
-                continue
-            target_file = f"{asset_id}.{output_format}"
-            size = raw_asset.get("size")
-            assets.append(
-                {
-                    "id": asset_id,
-                    "size": size if isinstance(size, list) else [],
-                    "prompt": str(raw_asset.get("prompt") or ""),
-                    "negative_prompt": str(raw_asset.get("negative_prompt") or ""),
-                    "dry_run_file": str(raw_asset.get("file") or ""),
-                    "target_file": target_file,
-                    "target_path": str(output_dir / target_file),
-                }
-            )
-
     context = {
         "schema_version": "1.0",
         "kind": "producer_context",
         "capability": "image",
         "producer_skill": producer_skill,
+        "weight_profile": weight_profile_for(metadata, domain),
         "backend": resolve_backend(metadata, "image"),
-        "project_root": str(plan["project_root"]),
-        "copy": str(plan["copy_path"]),
-        "campaign": str(plan["campaign_path"]),
+        "project_root": str(project_root),
+        "campaign": str(campaign_path),
         "run_lock": str(run_lock_path),
         "output_dir": str(output_dir),
-        "portfolio": {
-            "domain": "release",
-            "theme": theme_source_path(metadata, project_root) or "",
-            "accepted": str(release_portfolio["accepted"]),
-            "asset_state": str(release_portfolio["asset_state"]),
-            "patterns": str(release_portfolio["patterns"]),
-            "excluded_domains": ["promo"],
-        },
+        "portfolio": producer_context_portfolio(metadata, project_root, domain),
         "producer": producer,
         "resolved_style": run_lock.get("resolved_style", {}) if isinstance(run_lock, dict) else {},
-        "assets": assets,
+        "assets": producer_context_assets(run_lock, output_dir),
     }
+    if copy_path is not None:
+        context["copy"] = str(copy_path)
     context_path.parent.mkdir(parents=True, exist_ok=True)
     context_path.write_text(
         json.dumps(context, ensure_ascii=False, indent=2) + "\n",
@@ -2061,11 +2108,68 @@ def write_release_producer_context(
     return {
         "path": context_path,
         "producer_skill": producer_skill,
-        "portfolio": "release",
-        "portfolio_accepted": release_portfolio["accepted"],
-        "portfolio_asset_state": release_portfolio["asset_state"],
         "error": "",
     }
+
+
+def producer_context_assets(run_lock: dict[str, Any], output_dir: Path) -> list[dict[str, Any]]:
+    producer = run_lock.get("producer") if isinstance(run_lock, dict) else {}
+    producer = producer if isinstance(producer, dict) else {}
+    params = producer.get("params") if isinstance(producer.get("params"), dict) else {}
+    output_format = str(params.get("output_format") or "png")
+
+    assets: list[dict[str, Any]] = []
+    raw_assets = run_lock.get("assets") if isinstance(run_lock, dict) else []
+    if not isinstance(raw_assets, list):
+        return assets
+    for raw_asset in raw_assets:
+        if not isinstance(raw_asset, dict):
+            continue
+        asset_id = str(raw_asset.get("id") or "")
+        if not asset_id:
+            continue
+        target_file = f"{asset_id}.{output_format}"
+        size = raw_asset.get("size")
+        assets.append(
+            {
+                "id": asset_id,
+                "size": size if isinstance(size, list) else [],
+                "prompt": str(raw_asset.get("prompt") or ""),
+                "negative_prompt": str(raw_asset.get("negative_prompt") or ""),
+                "dry_run_file": str(raw_asset.get("file") or ""),
+                "target_file": target_file,
+                "target_path": str(output_dir / target_file),
+            }
+        )
+    return assets
+
+
+def producer_context_portfolio(
+    metadata: dict[str, Any], project_root: Path, domain: str
+) -> dict[str, Any]:
+    paths = project_paths(metadata, project_root)
+    portfolio = paths["portfolios"].get(domain) or paths["portfolios"]["promo"]
+    return {
+        "domain": domain,
+        "theme": theme_source_path(metadata, project_root) or "",
+        "accepted": str(portfolio["accepted"]),
+        "asset_state": str(portfolio["asset_state"]),
+        "patterns": str(portfolio["patterns"]),
+        "excluded_domains": [item for item in PORTFOLIO_DOMAINS if item != domain],
+    }
+
+
+def campaign_domain_for_path(
+    metadata: dict[str, Any], project_root: Path, campaign_path: Path
+) -> str:
+    paths = project_paths(metadata, project_root)
+    for domain, root in paths["campaign_dirs"].items():
+        try:
+            campaign_path.resolve().relative_to(root.resolve())
+            return domain
+        except ValueError:
+            continue
+    return "promo"
 
 
 def print_release_summary(
@@ -3623,6 +3727,20 @@ def string_at(metadata: dict[str, Any], *parts: str) -> str | None:
     if value in (None, ""):
         return None
     return str(value)
+
+
+def weight_profile_for(metadata: dict[str, Any], domain: str) -> str:
+    profiles = value_at(metadata, "weightProfiles")
+    if isinstance(profiles, dict):
+        domain_default = f"{domain}-default"
+        if isinstance(profiles.get(domain_default), dict):
+            return domain_default
+        default = profiles.get("default")
+        if default not in (None, ""):
+            return str(default)
+    if domain == "release":
+        return "release-default"
+    return DEFAULT_WEIGHT_PROFILE
 
 
 # Capability -> backend modality key under metadata.backends. The studio runtime

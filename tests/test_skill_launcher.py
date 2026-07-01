@@ -185,6 +185,48 @@ def test_template_declares_org_brand_standard_without_required_brief() -> None:
         "assetState": "assets/marketing/portfolios/promo/asset-state.yaml",
         "patterns": "assets/marketing/portfolios/promo/patterns.md",
     }
+    assert data["weightProfiles"] == {
+        "default": "promo-default",
+        "promo-default": {
+            "history": 30,
+            "request": 30,
+            "org": 10,
+            "producer": 30,
+        },
+        "release-default": {
+            "history": 20,
+            "request": 25,
+            "copy": 35,
+            "org": 10,
+            "producer": 10,
+        },
+        "logo-default": {
+            "history": 20,
+            "request": 20,
+            "org": 30,
+            "producer": 30,
+        },
+    }
+
+
+def test_weight_profile_prefers_domain_profile_over_default() -> None:
+    launcher = load_launcher()
+    meta = {
+        "weightProfiles": {
+            "default": "promo-default",
+            "promo-default": {"history": 30, "request": 30, "org": 10, "producer": 30},
+            "release-default": {
+                "history": 20,
+                "request": 25,
+                "copy": 35,
+                "org": 10,
+                "producer": 10,
+            },
+        }
+    }
+
+    assert launcher.weight_profile_for(meta, "promo") == "promo-default"
+    assert launcher.weight_profile_for(meta, "release") == "release-default"
 
 
 def test_project_root_option_anchors_metadata_relative_paths(tmp_path: Path) -> None:
@@ -938,6 +980,12 @@ deliverables:
     output_dir = project / "packages/branding/.studio/out/launch"
     assert (output_dir / "web-banner.svg").is_file()
     assert (output_dir / "manifest.json").is_file()
+    producer_context = json.loads(
+        (output_dir / "producer-context.json").read_text(encoding="utf-8")
+    )
+    assert producer_context["kind"] == "producer_context"
+    assert producer_context["weight_profile"] == "promo-default"
+    assert producer_context["assets"][0]["id"] == "web-banner"
 
 
 def test_release_render_reads_monorepo_package_changelog_and_renders(tmp_path: Path) -> None:
@@ -1102,6 +1150,7 @@ alias:
     assert producer_context["kind"] == "producer_context"
     assert producer_context["capability"] == "image"
     assert producer_context["producer_skill"] == "gpt-image"
+    assert producer_context["weight_profile"] == "release-default"
     assert producer_context["copy"] == str(copy_path)
     assert producer_context["campaign"] == str(generated_campaign)
     assert producer_context["assets"][0]["id"] == "release-card"

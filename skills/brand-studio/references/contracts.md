@@ -174,6 +174,41 @@ skill.
 - Credentials stay in environment variables and are never copied to YAML,
   manifests, run locks, or state files.
 
+## Weight Profiles
+
+`weightProfiles` is a metadata-level table for soft source priorities. It keeps
+the durable percentages out of prompts and lets `producer-context.json` carry
+only a compact `weight_profile` name:
+
+```yaml
+weightProfiles:
+  default: promo-default
+  promo-default:
+    history: 30
+    request: 30
+    org: 10
+    producer: 30
+  release-default:
+    history: 20
+    request: 25
+    copy: 35
+    org: 10
+    producer: 10
+```
+
+Producer skills resolve the profile from metadata and apply the fixed source
+semantics:
+
+- `history`: accepted assets and asset-state memory in the matching portfolio.
+- `request`: the current user request and campaign content.
+- `org`: the organization brand standard and shared org-fork conventions.
+- `copy`: release copy and version facts.
+- `producer`: selected producer/subskill composition convention.
+
+Treat these as priority hints, not arithmetic control over model attention.
+`theme.md` resolved style, palette, typography, references, and avoid list are
+hard constraints and override soft source weights.
+
 For `gpt-image`, validate handoff constraints before producer calls:
 
 - deliverable width and height should be 16px aligned.

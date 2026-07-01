@@ -412,6 +412,21 @@ clear match, **ask the user**; **hybrid** is allowed (compose several skills).
 When reading a producer/design skill, borrow its **UI convention**, not its
 specific technique — unless the user asks for that technique.
 
+**Weight profiles** live under metadata `weightProfiles`. The studio handoff
+passes only the resolved `weight_profile` name, not expanded percentages, so the
+producer can resolve the profile from metadata without spending prompt tokens.
+Interpret source keys consistently:
+
+- `history`: matching portfolio accepted assets and asset-state memory.
+- `request`: the current user request plus campaign brief/content.
+- `org`: organization brand standard and shared org-fork conventions.
+- `copy`: release copy asset and version facts.
+- `producer`: selected producer/subskill composition convention.
+
+Treat weight profiles as soft source-priority hints. `theme.md` resolved style,
+palette, typography, references, and avoid list are hard brand constraints and
+override soft source weights.
+
 **Backends** decide what engine renders a prompt, orthogonal to `skills`:
 
 ```yaml

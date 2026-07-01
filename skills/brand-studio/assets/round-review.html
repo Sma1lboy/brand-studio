@@ -60,7 +60,10 @@ function render(){
   eyebrow.textContent=`kobe · logo · round ${R.round} · review`;
   title.textContent=`round ${R.round} — ${R.title||''}`;
   goal.textContent=R.goal||'';
-  nav.innerHTML=(R.prev||[]).map(p=>`<a href="round-review.html?data=${p.data}">◂ round ${p.round} ${p.title||''}</a>`).join(' &nbsp; ');
+  const list=ROUNDS.length?ROUNDS:(R.prev||[]);
+  nav.innerHTML='rounds: '+list.map(p=>{const cur=p.data===DATA;
+    return cur?`<b>${p.round} ${p.title||''}</b>`:`<a href="round-review.html?data=${p.data}">${p.round} ${p.title||''}</a>`;
+  }).join(' &nbsp;·&nbsp; ');
   grid.innerHTML=R.items.map(it=>{const v=localStorage.getItem(KEY('v:'+it.id))||it.verdict||''; const note=localStorage.getItem(KEY('n:'+it.id))??(it.note||'');
     return `<div class="card" data-v="${v}"><div class="frame"><img src="${it.img}?t=${Date.now()}"/></div>
      <div class="meta"><p class="name"><span class="tag">${it.id}</span> ${it.concept||''}</p>
@@ -82,5 +85,8 @@ function exp(){const out={round:R.round,title:R.title,data:DATA,decisions:R.item
   const b=new Blob([s],{type:'application/json'}); const a=document.createElement('a');
   a.href=URL.createObjectURL(b); a.download=`decisions-${DATA}`; a.click();
   alert('Copied to clipboard + downloaded decisions-'+DATA);}
-fetch(DATA).then(r=>r.json()).then(j=>{R=j;render();}).catch(e=>{document.body.innerHTML='<p style="padding:44px">Could not load '+DATA+': '+e+'</p>';});
+let ROUNDS=[];
+Promise.all([fetch(DATA).then(r=>r.json()), fetch('rounds.json').then(r=>r.json()).catch(()=>[])])
+  .then(([j,idx])=>{R=j; ROUNDS=Array.isArray(idx)?idx:[]; render();})
+  .catch(e=>{document.body.innerHTML='<p style="padding:44px">Could not load '+DATA+': '+e+'</p>';});
 </script></body></html>

@@ -468,8 +468,11 @@ wrangle files.
 
 `round.json` schema: `{ round, title, goal, prev: [{round, title, data}],
 items: [{id, concept, img}] }`. Each round is one `round.json`; the same
-`assets/round-review.html` renders it. The template persists verdicts/notes in
-the browser and exports `{ round, decisions: [{id, verdict, note}], next }`.
+`assets/round-review.html` renders it. Keep a `rounds.json` index next to it
+(`[{round, title, data}]`, one entry per round) so every round page cross-links
+to all the others (current highlighted); without it the nav falls back to
+`prev`. The template persists verdicts/notes in the browser and exports
+`{ round, decisions: [{id, verdict, note}], next }`.
 
 Keep every multi-candidate task on this loop so the experience stays smooth and
 nothing accepted is lost or left un-settled.

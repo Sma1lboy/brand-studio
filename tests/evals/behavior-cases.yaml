@@ -179,6 +179,20 @@ cases:
       pass_if: "Uses the standard review template + round.json + keep/maybe/drop."
       fail_if: "Hand-rolls a page or dumps files without the template."
 
+  - id: one-board-for-all-round-assets
+    category: loop
+    rule: "SKILL.md — ALL of a round's assets (candidates OR a deliverable set) live in the one round-review board; never hand separate per-asset pages/URLs"
+    scenario: >
+      A round produced 3 distinct marketing deliverables (a GitHub banner, a landing
+      hero, an X 4:3 card). You want the user to review them.
+    correct_decision: >
+      Put all three into one round.json and show them in the single round-review.html
+      board (keep/iterate). Do not create or hand-link separate standalone HTML pages/URLs.
+    anti_pattern: "Hands the user separate per-asset HTML pages/URLs, or a bespoke preview page, instead of the one board."
+    judge:
+      pass_if: "Manages all the round's assets in the single round-review board."
+      fail_if: "Hands separate per-asset pages/URLs or a one-off preview page."
+
   - id: parallel-generation-no-cap
     category: loop
     rule: "memory/SKILL.md — fire all candidates in a round fully in parallel, no concurrency cap"

@@ -513,8 +513,13 @@ bakes them into a single hardcoded prompt.
    review board. Write a per-round `round.json` beside it and open
    `round-review.html?data=round-N.json`; serve it with
    `scripts/serve-review.py` on a fixed local port (headless browser and `fetch`
-   need `http://`, not `file://`) and screenshot it. Do not hand-roll a one-off
-   page — **every round uses this template** so review stays consistent and
+   need `http://`, not `file://`) and screenshot it. **ALL of a round's assets are
+   managed in this one board** — whether they are candidates to pick *one* from
+   OR a set of distinct deliverables (e.g. a logo plus a GitHub banner, a landing
+   hero, and a social/X card). **Never** hand the user separate/standalone HTML
+   pages or per-asset URLs to preview; one round = one `round.json` in the one
+   board, where the user reviews and decides keep / iterate. Do not hand-roll a
+   one-off page — every round uses this template so review stays consistent and
    comparable across rounds, with round goal, prev-round nav, and next-round
    direction built in.
 3. **Verdicts — keep / maybe / drop** — the user marks each candidate
@@ -539,8 +544,9 @@ to all the others (current highlighted); without it the nav falls back to
 `prev`. The template persists verdicts/notes in the browser and exports
 `{ round, decisions: [{id, verdict, note}], next }`.
 
-Keep every multi-candidate task on this loop so the experience stays smooth and
-nothing accepted is lost or left un-settled.
+Keep every asset-producing round on this loop — candidates **and** deliverable
+sets — so the experience stays smooth, everything for a round is reviewed in one
+place, and nothing accepted is lost or left un-settled.
 
 ## Style Production
 

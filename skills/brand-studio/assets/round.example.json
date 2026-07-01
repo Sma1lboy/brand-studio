@@ -1,0 +1,10 @@
+{
+  "round": 1,
+  "title": "first directions",
+  "goal": "Wide exploration — distinct concepts grounded in the brand's reference assets.",
+  "prev": [],
+  "items": [
+    { "id": "01", "concept": "cursor block", "img": "candidate-01.png" },
+    { "id": "02", "concept": "bracket badge", "img": "candidate-02.png" }
+  ]
+}

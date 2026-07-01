@@ -446,18 +446,30 @@ wrangle files.
    inputs (e.g. `codex exec -i <asset>`) so candidates inherit the real visual
    language, not just text tokens. Pull those references from the declared asset
    roots / `theme.references`, not ad hoc.
-2. **Preview (HTML, default)** — render one self-contained HTML page that grids
-   the candidates with a one-line rationale each and the references they used,
-   then show it: screenshot it (headless browser needs `http://`, not `file://`)
-   or `open` it for the user. An HTML preview is the **default** presentation for
-   any multi-candidate output.
-3. **Ask (AskUserQuestion)** — present the candidates as a **multi-select**
-   AskUserQuestion so the user picks which to accept. Do not infer the choice.
-4. **Settle** — for each accepted candidate, run `repo settle` into the matching
-   portfolio (release/promo) with its `modality` and domain. Unpicked candidates
-   stay in scratch (or are deleted only on request).
+2. **Preview — the standard review template (required every round)** — render
+   the candidates into `assets/round-review.html`, the reusable, data-driven
+   review board. Write a per-round `round.json` beside it and open
+   `round-review.html?data=round-N.json`; serve on a fixed local port (headless
+   browser and `fetch` need `http://`, not `file://`) and screenshot it. Do not
+   hand-roll a one-off page — **every round uses this template** so review stays
+   consistent and comparable across rounds, with round goal, prev-round nav, and
+   next-round direction built in.
+3. **Verdicts — keep / maybe / drop** — the user marks each candidate
+   **keep / maybe / drop** with an optional per-icon note, plus a next-round
+   direction, right in the template; its **Export** writes
+   `decisions-round-N.json`. Read that to drive the next two steps. (For only a
+   handful of candidates an AskUserQuestion multi-select is an acceptable
+   shortcut.) Never infer verdicts.
+4. **Settle** — for each **keep**, run `repo settle` into the matching portfolio
+   (release/promo) with its `modality` and domain. `maybe`/`drop` and unpicked
+   candidates stay in scratch (or are deleted only on request).
 5. **Next round** — offer to iterate: refine a pick, try a new direction/style,
    or pull in a new reference element. Loop until the user is done.
+
+`round.json` schema: `{ round, title, goal, prev: [{round, title, data}],
+items: [{id, concept, img}] }`. Each round is one `round.json`; the same
+`assets/round-review.html` renders it. The template persists verdicts/notes in
+the browser and exports `{ round, decisions: [{id, verdict, note}], next }`.
 
 Keep every multi-candidate task on this loop so the experience stays smooth and
 nothing accepted is lost or left un-settled.

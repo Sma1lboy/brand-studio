@@ -80,6 +80,14 @@ skill install. Do not silently switch to upstream. Product-specific `theme.md`,
 campaigns, accepted state, and public assets remain in the product repo or its
 asset repo; cross-person defaults belong in the fork.
 
+**Asset location is a hard boundary.** Product assets — generated candidates,
+accepted images/video/copy, `theme.references` targets, campaigns, accepted
+state — live in the **product repo**, never in this org skill repo or its fork.
+The skill repo holds only runtime, producers, templates, and cross-product
+defaults: zero real product bytes. This includes **test fixtures** — reference
+product assets by their product-repo path, never embed copies (the runtime uses
+references as prompt strings, so a product-repo-only path is fine).
+
 ## Org Brand Standard Init
 
 For `init-org`, initialize the organization fork itself and store shared brand

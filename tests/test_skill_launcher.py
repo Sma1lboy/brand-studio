@@ -229,6 +229,179 @@ def test_weight_profile_prefers_domain_profile_over_default() -> None:
     assert launcher.weight_profile_for(meta, "release") == "release-default"
 
 
+def test_copy_package_draft_writes_candidate_and_review_round(tmp_path: Path) -> None:
+    project = tmp_path
+    metadata_path = project / "marketing.studio.json"
+    metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "copy",
+            "draft",
+            "--write",
+            "--campaign",
+            "launch",
+            "--asset-id",
+            "landing-copy",
+            "--idea",
+            "Make the launch page feel like a precise production pipeline.",
+            "--headline",
+            "Launch work that keeps its shape",
+            "--body",
+            "Turn rough campaign intent into reviewed brand copy that can be reused.",
+            "--domain",
+            "promo",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert "mode=copy-draft" in completed.stdout
+    assert "copy_status=created" in completed.stdout
+    assert "review_status=created" in completed.stdout
+    assert "candidate=" in completed.stdout
+    assert "round=" in completed.stdout
+
+    candidate = project / "packages/branding/.studio/out/launch/landing-copy.copy.yaml"
+    round_path = project / "packages/branding/.studio/out/launch/round-1.json"
+    rounds_path = project / "packages/branding/.studio/out/launch/rounds.json"
+    review_html = project / "packages/branding/.studio/out/launch/round-review.html"
+    assert candidate.is_file()
+    assert round_path.is_file()
+    assert rounds_path.is_file()
+    assert review_html.is_file()
+
+    launcher = load_launcher()
+    copy_asset = launcher.parse_yaml_document(candidate.read_text(encoding="utf-8"))
+    assert copy_asset == {
+        "schema_version": "1.0",
+        "kind": "copy_package",
+        "idea": "Make the launch page feel like a precise production pipeline.",
+        "headline": "Launch work that keeps its shape",
+        "body": "Turn rough campaign intent into reviewed brand copy that can be reused.",
+    }
+
+    round_data = json.loads(round_path.read_text(encoding="utf-8"))
+    assert round_data["round"] == 1
+    assert round_data["title"] == "launch copy candidates"
+    assert round_data["goal"] == "Make the launch page feel like a precise production pipeline."
+    assert round_data["items"] == [
+        {
+            "id": "landing-copy",
+            "kind": "copy_package",
+            "modality": "copy",
+            "concept": "Launch work that keeps its shape",
+            "headline": "Launch work that keeps its shape",
+            "body": "Turn rough campaign intent into reviewed brand copy that can be reused.",
+            "file": "landing-copy.copy.yaml",
+        }
+    ]
+
+
+def test_copy_package_settle_lands_headline_body_in_accepted_corpus(tmp_path: Path) -> None:
+    project = tmp_path
+    metadata_path = project / "marketing.studio.json"
+    metadata_path.write_text(json.dumps(metadata(project)), encoding="utf-8")
+
+    draft = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "copy",
+            "draft",
+            "--write",
+            "--campaign",
+            "launch",
+            "--asset-id",
+            "landing-copy",
+            "--idea",
+            "Make launch positioning reusable.",
+            "--headline",
+            "Launch copy with memory",
+            "--body",
+            "Accepted campaign language becomes part of the next round's brand weight.",
+            "--domain",
+            "promo",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert draft.returncode == 0, draft.stderr
+
+    candidate = project / "packages/branding/.studio/out/launch/landing-copy.copy.yaml"
+    settled = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "copy",
+            "settle",
+            "--campaign",
+            "launch",
+            "--asset-id",
+            "landing-copy",
+            "--file",
+            str(candidate),
+            "--domain",
+            "promo",
+            "--update-asset-state",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert settled.returncode == 0, settled.stderr
+    assert "mode=settle" in settled.stdout
+    assert "accepted=true" in settled.stdout
+    assert "modality=copy" in settled.stdout
+    assert "source_kind=idea" in settled.stdout
+    assert "asset_type=copy-package" in settled.stdout
+    assert "style_family=brand-voice" in settled.stdout
+
+    approved = project / "packages/branding/public/marketing/launch/landing-copy.copy.yaml"
+    assert approved.is_file()
+    assert 'headline: "Launch copy with memory"' in approved.read_text(encoding="utf-8")
+    root_accepted = (
+        project / "packages/branding/marketing/accepted.yaml"
+    ).read_text(encoding="utf-8")
+    portfolio_accepted = (
+        project / "packages/branding/marketing/portfolios/promo/accepted.yaml"
+    ).read_text(encoding="utf-8")
+    portfolio_state = (
+        project / "packages/branding/marketing/portfolios/promo/asset-state.yaml"
+    ).read_text(encoding="utf-8")
+    for text in (root_accepted, portfolio_accepted, portfolio_state):
+        assert 'id: "launch-landing-copy"' in text
+        assert 'modality: "copy"' in text
+        assert 'asset_type: "copy-package"' in text
+        assert 'style_family: "brand-voice"' in text
+
+
+def test_round_review_template_supports_text_copy_cards() -> None:
+    template = (ROOT / "skills/brand-studio/assets/round-review.html").read_text(
+        encoding="utf-8"
+    )
+
+    assert "copy-frame" in template
+    assert "it.headline" in template
+    assert "it.body" in template
+    assert "it.img" in template
+
+
 def test_project_root_option_anchors_metadata_relative_paths(tmp_path: Path) -> None:
     project = tmp_path / "product"
     other_cwd = tmp_path / "tooling"

@@ -122,6 +122,8 @@ Canonical Brand Studio commands:
   repo state [--compact] [target-dir]
   repo validate
   repo render --dry-run
+  repo copy draft --write --campaign NAME --asset-id ID --idea TEXT --headline TEXT --body TEXT
+  repo copy settle --campaign NAME --asset-id ID --file FILE
   repo release copy [--write] [--releases N]
   repo release campaign [--write]
   repo gen release [--changelog FILE] [--releases N]
@@ -156,7 +158,7 @@ def repo_command(
     if not args or args[0] in {"-h", "--help"}:
         print(
             "usage: studio.py repo "
-            "{init,paths,check,state,validate,render,release,gen,prompt,handoff,"
+            "{init,paths,check,state,validate,render,copy,release,gen,prompt,handoff,"
             "settle,report,delete} ..."
         )
         return 0
@@ -173,6 +175,8 @@ def repo_command(
         return print_state(rest, metadata, metadata_path)
     if command_name in {"validate", "render"}:
         return run_repo_render_command([command_name, *rest], metadata)
+    if command_name == "copy":
+        return repo_copy_command(rest, metadata, metadata_path)
     if command_name == "release":
         return repo_release_command(rest, metadata, metadata_path)
     if command_name == "gen" and rest[:1] == ["release"]:
@@ -188,6 +192,24 @@ def repo_command(
     if command_name == "delete" and rest[:1] == ["candidate"]:
         return delete_candidate(rest[1:], metadata, metadata_path)
     print(f"unknown repo command: {' '.join(args)}", file=sys.stderr)
+    return 2
+
+
+def repo_copy_command(
+    args: list[str],
+    metadata: dict[str, Any],
+    metadata_path: str | None,
+) -> int:
+    if not args or args[0] in {"-h", "--help"}:
+        print("usage: studio.py repo copy {draft,settle} ...")
+        return 0
+    command_name = args[0]
+    rest = args[1:]
+    if command_name == "draft":
+        return copy_draft(rest, metadata, metadata_path)
+    if command_name == "settle":
+        return copy_settle(rest, metadata, metadata_path)
+    print(f"unknown repo copy command: {' '.join(args)}", file=sys.stderr)
     return 2
 
 
@@ -1412,6 +1434,364 @@ def release_render(args: list[str], metadata: dict[str, Any], metadata_path: str
         portfolio_asset_state=Path(str(producer_context_result["portfolio_asset_state"])),
     )
     return 0
+
+
+def copy_draft(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    usage = (
+        "usage: studio.py repo copy draft [--write] [--force] "
+        "--campaign NAME --asset-id ID --idea TEXT --headline TEXT --body TEXT "
+        "[--domain release|promo] [--round N] [--title TEXT] [target-dir]"
+    )
+    options = parse_copy_draft_options(args, usage)
+    if isinstance(options, str):
+        print(options, file=sys.stderr)
+        return 1
+
+    target = str(options["target"])
+    project_root = project_root_for(metadata, fallback=Path(target).resolve())
+    paths = project_paths(metadata, project_root)
+    campaign = str(options["campaign"])
+    asset_id = str(options["asset_id"])
+    domain = accepted_domain(str(options.get("domain") or ""), campaign)
+    if not domain:
+        print("--domain must be release or promo", file=sys.stderr)
+        return 1
+
+    output_dir = paths["scratch_dir"] / campaign
+    candidate_path = output_dir / f"{asset_id}.copy.yaml"
+    copy_asset = build_copy_package_asset(
+        idea=str(options["idea"]),
+        headline=str(options["headline"]),
+        body=str(options["body"]),
+    )
+    copy_yaml = build_copy_package_yaml(copy_asset)
+    round_number = int(options["round"])
+    round_path = output_dir / f"round-{round_number}.json"
+    rounds_path = output_dir / "rounds.json"
+    review_html_path = output_dir / "round-review.html"
+    round_title = str(options["title"] or f"{campaign} copy candidates")
+    round_json = build_copy_round_json(
+        round_number=round_number,
+        title=round_title,
+        goal=str(options["idea"]),
+        asset_id=asset_id,
+        candidate_path=candidate_path,
+        copy_asset=copy_asset,
+    )
+
+    if options["write"]:
+        copy_result = write_text_asset(candidate_path, copy_yaml, force=bool(options["force"]))
+        if copy_result["error"]:
+            print(copy_result["error"], file=sys.stderr)
+            return 1
+        review_result = write_text_asset(
+            round_path,
+            json.dumps(round_json, ensure_ascii=False, indent=2) + "\n",
+            force=bool(options["force"]),
+        )
+        if review_result["error"]:
+            print(review_result["error"], file=sys.stderr)
+            return 1
+        index_result = write_rounds_index(
+            rounds_path,
+            round_number=round_number,
+            title=round_title,
+            data=round_path.name,
+        )
+        if index_result["error"]:
+            print(index_result["error"], file=sys.stderr)
+            return 1
+        review_html_result = write_review_template(review_html_path, force=bool(options["force"]))
+        if review_html_result["error"]:
+            print(review_html_result["error"], file=sys.stderr)
+            return 1
+    else:
+        copy_result = {"status": "dry-run", "error": ""}
+        review_result = {"status": "dry-run", "error": ""}
+        index_result = {"status": "dry-run", "error": ""}
+        review_html_result = {"status": "dry-run", "error": ""}
+
+    print_kv(
+        {
+            "mode": "copy-draft",
+            "metadata": metadata_path or "",
+            "project_root": project_root,
+            "campaign": campaign,
+            "asset_id": asset_id,
+            "domain": domain,
+            "candidate": candidate_path,
+            "copy_status": copy_result["status"],
+            "round": round_path,
+            "review_status": review_result["status"],
+            "rounds": rounds_path,
+            "rounds_status": index_result["status"],
+            "review_html": review_html_path,
+            "review_html_status": review_html_result["status"],
+            "modality": "copy",
+            "kind": "copy_package",
+        }
+    )
+    if not options["write"]:
+        print("\n" + copy_yaml.rstrip())
+        print("\n" + json.dumps(round_json, ensure_ascii=False, indent=2))
+    return 0
+
+
+def copy_settle(args: list[str], metadata: dict[str, Any], metadata_path: str | None) -> int:
+    usage = (
+        "usage: studio.py repo copy settle --campaign NAME --asset-id ID --file FILE "
+        "[--domain release|promo] [--checksum-sha256 SHA256] [--notes TEXT] "
+        "[--tags a,b] [--plan FILE] [--update-asset-state]"
+    )
+    options = parse_copy_settle_options(args, usage)
+    if isinstance(options, str):
+        print(options, file=sys.stderr)
+        return 1
+
+    project_root = project_root_for(metadata)
+    candidate = Path(resolve_project_path(project_root, options["file"]))
+    copy_asset, error = read_copy_package_asset(candidate)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
+
+    campaign = str(options["campaign"])
+    domain = accepted_domain(str(options.get("domain") or ""), campaign)
+    if not domain:
+        print("--domain must be release or promo", file=sys.stderr)
+        return 1
+
+    settle_args = [
+        "--campaign",
+        campaign,
+        "--asset-id",
+        str(options["asset_id"]),
+        "--file",
+        str(options["file"]),
+        "--domain",
+        domain,
+        "--source-kind",
+        str(options.get("source_kind") or "idea"),
+        "--asset-type",
+        str(options.get("asset_type") or "copy-package"),
+        "--style-family",
+        str(options.get("style_family") or "brand-voice"),
+        "--notes",
+        str(options.get("notes") or f"Accepted copy package: {copy_asset['headline']}"),
+    ]
+    for flag, key in (
+        ("--checksum-sha256", "checksum_sha256"),
+        ("--tags", "tags"),
+        ("--plan", "plan"),
+    ):
+        value = str(options.get(key) or "")
+        if value:
+            settle_args.extend([flag, value])
+    if options["update_asset_state"]:
+        settle_args.append("--update-asset-state")
+    return accept_asset(settle_args, metadata, metadata_path)
+
+
+def parse_copy_draft_options(args: list[str], usage: str) -> dict[str, Any] | str:
+    options: dict[str, Any] = {
+        "write": False,
+        "force": False,
+        "target": ".",
+        "campaign": "",
+        "asset_id": "",
+        "idea": "",
+        "headline": "",
+        "body": "",
+        "domain": "",
+        "round": 1,
+        "title": "",
+    }
+    value_options = {
+        "--campaign": "campaign",
+        "--asset-id": "asset_id",
+        "--idea": "idea",
+        "--headline": "headline",
+        "--body": "body",
+        "--domain": "domain",
+        "--round": "round",
+        "--title": "title",
+    }
+    remaining = list(args)
+    while remaining:
+        token = remaining.pop(0)
+        if token in {"-h", "--help"}:
+            print(usage)
+            raise SystemExit(0)
+        if token == "--write":
+            options["write"] = True
+            continue
+        if token == "--force":
+            options["force"] = True
+            continue
+        if token in value_options:
+            if not remaining:
+                return f"{token} requires a value"
+            raw = remaining.pop(0)
+            if token == "--round":
+                parsed_round = parse_positive_int(raw, token)
+                if isinstance(parsed_round, str):
+                    return parsed_round
+                options["round"] = parsed_round
+            else:
+                options[value_options[token]] = raw
+            continue
+        matched = False
+        for flag, key in value_options.items():
+            if token.startswith(f"{flag}="):
+                raw = token.split("=", 1)[1]
+                if flag == "--round":
+                    parsed_round = parse_positive_int(raw, flag)
+                    if isinstance(parsed_round, str):
+                        return parsed_round
+                    options["round"] = parsed_round
+                else:
+                    options[key] = raw
+                matched = True
+                break
+        if matched:
+            continue
+        if token.startswith("-"):
+            return f"unknown repo copy draft option: {token}"
+        options["target"] = token
+
+    for key in ("campaign", "asset_id", "idea", "headline", "body"):
+        if not str(options[key]).strip():
+            return f"repo copy draft requires --{key.replace('_', '-')}"
+    if options["domain"] and options["domain"] not in PORTFOLIO_DOMAINS:
+        return "--domain must be release or promo"
+    return options
+
+
+def parse_copy_settle_options(args: list[str], usage: str) -> dict[str, Any] | str:
+    options = parse_accept_options(args, usage)
+    if isinstance(options, str):
+        return options.replace("repo settle", "repo copy settle")
+    return options
+
+
+def parse_positive_int(value: str, option: str) -> int | str:
+    try:
+        parsed = int(value)
+    except ValueError:
+        return f"{option} must be a positive integer"
+    if parsed < 1:
+        return f"{option} must be a positive integer"
+    return parsed
+
+
+def build_copy_package_asset(*, idea: str, headline: str, body: str) -> dict[str, Any]:
+    return {
+        "schema_version": "1.0",
+        "kind": "copy_package",
+        "idea": single_line(idea),
+        "headline": single_line(headline),
+        "body": body.strip(),
+    }
+
+
+def build_copy_package_yaml(copy_asset: dict[str, Any]) -> str:
+    lines = [
+        f"schema_version: {yaml_string(str(copy_asset['schema_version']))}",
+        f"kind: {yaml_string(str(copy_asset['kind']))}",
+        f"idea: {yaml_string(str(copy_asset['idea']))}",
+        f"headline: {yaml_string(str(copy_asset['headline']))}",
+        f"body: {yaml_string(str(copy_asset['body']))}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def build_copy_round_json(
+    *,
+    round_number: int,
+    title: str,
+    goal: str,
+    asset_id: str,
+    candidate_path: Path,
+    copy_asset: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "round": round_number,
+        "title": title,
+        "goal": single_line(goal),
+        "prev": [],
+        "items": [
+            {
+                "id": asset_id,
+                "kind": "copy_package",
+                "modality": "copy",
+                "concept": str(copy_asset["headline"]),
+                "headline": str(copy_asset["headline"]),
+                "body": str(copy_asset["body"]),
+                "file": candidate_path.name,
+            }
+        ],
+    }
+
+
+def write_rounds_index(
+    path: Path,
+    *,
+    round_number: int,
+    title: str,
+    data: str,
+) -> dict[str, str]:
+    existed = path.exists()
+    if path.is_file():
+        try:
+            raw_index = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return {"status": "blocked", "error": f"{path}: cannot read rounds index: {exc}"}
+    else:
+        raw_index = []
+    index = raw_index if isinstance(raw_index, list) else []
+    entry = {"round": round_number, "title": title, "data": data}
+    index = [
+        item
+        for item in index
+        if not (isinstance(item, dict) and str(item.get("data") or "") == data)
+    ]
+    index.append(entry)
+    index.sort(key=lambda item: int(item.get("round") or 0) if isinstance(item, dict) else 0)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(index, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {"status": "updated" if existed else "created", "error": ""}
+
+
+def write_review_template(path: Path, *, force: bool) -> dict[str, str]:
+    source = Path(__file__).resolve().parent.parent / "assets" / "round-review.html"
+    try:
+        content = source.read_text(encoding="utf-8")
+    except OSError as exc:
+        return {"status": "blocked", "error": f"{source}: cannot read review template: {exc}"}
+    return write_text_asset(path, content, force=force)
+
+
+def read_copy_package_asset(path: Path) -> tuple[dict[str, Any], str]:
+    if not path.is_file():
+        return {}, f"{path}: copy package candidate not found"
+    try:
+        data = load_structured_file(path)
+    except (OSError, SystemExit, ValueError, json.JSONDecodeError) as exc:
+        return {}, f"{path}: unable to read copy package: {exc}"
+    if not isinstance(data, dict):
+        return {}, f"{path}: copy package root must be an object"
+    if str(data.get("kind") or "") != "copy_package":
+        return {}, f"{path}: copy package kind must be copy_package"
+    for key in ("headline", "body"):
+        if not str(data.get(key) or "").strip():
+            return {}, f"{path}: copy package missing {key}"
+    return {
+        "schema_version": str(data.get("schema_version") or "1.0"),
+        "kind": "copy_package",
+        "idea": str(data.get("idea") or ""),
+        "headline": str(data.get("headline") or "").strip(),
+        "body": str(data.get("body") or "").strip(),
+    }, ""
 
 
 def parse_release_options(
@@ -3526,6 +3906,7 @@ def upsert_asset_state(path: Path, entry: dict[str, Any], project_root: Path) ->
         "campaign": entry["campaign"],
         "asset_id": entry["asset_id"],
         "domain": entry.get("domain", ""),
+        "modality": entry.get("modality", ""),
         "source_kind": entry.get("source_kind", ""),
         "asset_type": entry.get("asset_type", ""),
         "style_family": entry.get("style_family", ""),

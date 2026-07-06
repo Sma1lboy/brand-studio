@@ -546,15 +546,29 @@ bakes them into a single hardcoded prompt.
    board, where the user reviews and decides keep / iterate. Do not hand-roll a
    one-off page — every round uses this template so review stays consistent and
    comparable across rounds, with round goal, prev-round nav, and next-round
-   direction built in.
+   direction built in. The board ships over two channels: **local**
+   (`serve-review.py`, default for a solo reviewer — decisions save straight to
+   disk) and **Artifact** (the same board published as a self-contained
+   claude.ai Artifact — inline SVGs / data-URI images, no external hosts — when
+   more than one person needs to weigh in; one link, everyone reviews the same
+   round). Same rule on both channels: one round = one board.
 3. **Verdicts — keep / maybe / drop** — the user marks each candidate
    **keep / maybe / drop** with an optional per-icon note, plus a next-round
-   direction, right in the template. Two ways to get the decisions to the agent:
-   **(A) Save to disk** — the template POSTs to `serve-review.py`, which writes
-   `decisions-round-N.json` next to the round data; **Read** it directly, no
-   paste. **(B) Export / paste** — the user copies/downloads the JSON and pastes
-   it. (For only a handful of candidates an AskUserQuestion multi-select is an
-   acceptable shortcut.) Never infer verdicts.
+   direction, right in the template. Three ways to get the decisions to the
+   agent: **(A) Save to disk** — the template POSTs to `serve-review.py`, which
+   writes `decisions-round-N.json` next to the round data; **Read** it directly,
+   no paste. **(B) Export / paste** — the user copies/downloads the JSON and
+   pastes it. (For only a handful of candidates an AskUserQuestion multi-select
+   is an acceptable shortcut.) **(C) Artifact shared storage** — on the Artifact
+   channel each reviewer enters a name, marks verdicts, and submits; the board
+   writes `window.storage.set("<series>:r<N>:verdict:<name>", json, true)`
+   (shared storage — live on published artifacts only, silently inert on drafts,
+   so the board must probe on load and surface storage status). Nothing outside
+   the artifact can read that storage — no API, no WebFetch — so the board MUST
+   include an aggregate view merging all submissions client-side plus one
+   copy-JSON button; a human pastes the merged JSON back to the agent, who then
+   applies the verdicts. Always keep a per-person export fallback for when
+   storage is unavailable. Never infer verdicts.
 4. **Settle** — for each **keep**, run `repo settle` into the matching portfolio
    (release/promo) with its `modality` and domain. `maybe`/`drop` and unpicked
    candidates stay in scratch (or are deleted only on request).

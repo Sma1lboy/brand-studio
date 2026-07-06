@@ -1,10 +1,19 @@
 ---
 name: brand-studio
 description: >-
-  Use this skill to operate thin brand-studio scripts from a product repo:
-  read YAML/JSON metadata, plan theme-locked campaigns, validate theme.md and
-  campaign YAML, export producer-ready dry-run context, and record only
-  user-accepted assets into repo-owned visual state.
+  The entry point for ALL brand/marketing visual work in a repo or org — use
+  whenever the user wants a brand asset produced, reviewed, or managed: logo,
+  banner/header, release card, promo or social image, brand video, brand
+  standard / theme init or update, candidate review, or settling an accepted
+  asset. Orchestrates the bound producer skills (image/video/logo/social/copy)
+  and backends through one generate -> review-board -> settle loop with human
+  gates; curates and settles, never edits approved assets in place. Triggers:
+  "做个 logo / 横幅 / 头图 / 宣传图 / release card / 品牌视频", "重做 logo",
+  "generate a logo / banner / marketing asset", "init or update the brand /
+  theme", "这张可以 / use this one / settle it". If the repo has
+  marketing.studio.yaml (or the org fork has public/brand/), route brand-asset
+  requests through this skill first instead of calling a producer skill or
+  image backend directly.
 ---
 
 # Brand Studio
@@ -537,15 +546,35 @@ bakes them into a single hardcoded prompt.
    board, where the user reviews and decides keep / iterate. Do not hand-roll a
    one-off page — every round uses this template so review stays consistent and
    comparable across rounds, with round goal, prev-round nav, and next-round
-   direction built in.
+   direction built in. The board ships over three channels — pick by audience:
+   **local** (`serve-review.py`, default for a solo reviewer — decisions save
+   straight to disk); **share server** (default for multi-person review: fill
+   `assets/share-review.html` with the round's items — inline SVGs / data-URI
+   images, fully self-contained — and `POST` it to the org share server, e.g.
+   `https://brand-studio.sma1lboy.me/share` → one public link, no login, every
+   reviewer submits by name, and the agent reads the merged verdicts back
+   directly; see `share-server/README.md`); **Artifact** (fallback when no
+   share server is deployed — note artifacts publish private-by-default and
+   need the user to enable link sharing manually). Same rule on every channel:
+   one round = one board.
 3. **Verdicts — keep / maybe / drop** — the user marks each candidate
    **keep / maybe / drop** with an optional per-icon note, plus a next-round
-   direction, right in the template. Two ways to get the decisions to the agent:
-   **(A) Save to disk** — the template POSTs to `serve-review.py`, which writes
-   `decisions-round-N.json` next to the round data; **Read** it directly, no
-   paste. **(B) Export / paste** — the user copies/downloads the JSON and pastes
-   it. (For only a handful of candidates an AskUserQuestion multi-select is an
-   acceptable shortcut.) Never infer verdicts.
+   direction, right in the template. Three ways to get the decisions to the
+   agent: **(A) Save to disk** — the template POSTs to `serve-review.py`, which
+   writes `decisions-round-N.json` next to the round data; **Read** it directly,
+   no paste. **(B) Export / paste** — the user copies/downloads the JSON and
+   pastes it. (For only a handful of candidates an AskUserQuestion multi-select
+   is an acceptable shortcut.) **(C) Share server** — each reviewer submits by
+   name from the board (`POST <share-url>/verdict`, resubmit overwrites); the
+   agent reads `GET <share-url>/verdicts` directly — no human shuttle. Poll it
+   when the user says the round has been reviewed. **(D) Artifact shared
+   storage (fallback)** — reviewers submit via
+   `window.storage.set("<series>:r<N>:verdict:<name>", json, true)` (live on
+   published artifacts only, silently inert on drafts — probe on load and
+   surface status). Nothing outside an artifact can read its storage, so the
+   board MUST merge submissions client-side and offer one copy-JSON button a
+   human pastes back. Every remote board keeps a per-person export fallback.
+   Never infer verdicts.
 4. **Settle** — for each **keep**, run `repo settle` into the matching portfolio
    (release/promo) with its `modality` and domain. `maybe`/`drop` and unpicked
    candidates stay in scratch (or are deleted only on request).

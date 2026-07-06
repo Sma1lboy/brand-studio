@@ -1,10 +1,19 @@
 ---
 name: brand-studio
 description: >-
-  Use this skill to operate thin brand-studio scripts from a product repo:
-  read YAML/JSON metadata, plan theme-locked campaigns, validate theme.md and
-  campaign YAML, export producer-ready dry-run context, and record only
-  user-accepted assets into repo-owned visual state.
+  The entry point for ALL brand/marketing visual work in a repo or org — use
+  whenever the user wants a brand asset produced, reviewed, or managed: logo,
+  banner/header, release card, promo or social image, brand video, brand
+  standard / theme init or update, candidate review, or settling an accepted
+  asset. Orchestrates the bound producer skills (image/video/logo/social/copy)
+  and backends through one generate -> review-board -> settle loop with human
+  gates; curates and settles, never edits approved assets in place. Triggers:
+  "做个 logo / 横幅 / 头图 / 宣传图 / release card / 品牌视频", "重做 logo",
+  "generate a logo / banner / marketing asset", "init or update the brand /
+  theme", "这张可以 / use this one / settle it". If the repo has
+  marketing.studio.yaml (or the org fork has public/brand/), route brand-asset
+  requests through this skill first instead of calling a producer skill or
+  image backend directly.
 ---
 
 # Brand Studio

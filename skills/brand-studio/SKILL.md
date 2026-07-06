@@ -551,7 +551,11 @@ bakes them into a single hardcoded prompt.
    disk) and **Artifact** (the same board published as a self-contained
    claude.ai Artifact — inline SVGs / data-URI images, no external hosts — when
    more than one person needs to weigh in; one link, everyone reviews the same
-   round). Same rule on both channels: one round = one board.
+   round). Artifacts publish **private by default** and no tool parameter can
+   change that — after publishing a multi-reviewer board, ALWAYS remind the
+   user to flip the artifact's share setting to link-sharing themselves, or
+   teammates will hit a login wall and shared storage stays single-user. Same
+   rule on both channels: one round = one board.
 3. **Verdicts — keep / maybe / drop** — the user marks each candidate
    **keep / maybe / drop** with an optional per-icon note, plus a next-round
    direction, right in the template. Three ways to get the decisions to the

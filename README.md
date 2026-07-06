@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/Sma1lboy/brand-studio/main/assets/banner.svg" width="100%" alt="brand-studio">
+
 # Brand Studio Skill
 
 [简体中文](README.zh-CN.md)

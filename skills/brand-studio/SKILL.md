@@ -546,16 +546,17 @@ bakes them into a single hardcoded prompt.
    board, where the user reviews and decides keep / iterate. Do not hand-roll a
    one-off page — every round uses this template so review stays consistent and
    comparable across rounds, with round goal, prev-round nav, and next-round
-   direction built in. The board ships over two channels: **local**
-   (`serve-review.py`, default for a solo reviewer — decisions save straight to
-   disk) and **Artifact** (the same board published as a self-contained
-   claude.ai Artifact — inline SVGs / data-URI images, no external hosts — when
-   more than one person needs to weigh in; one link, everyone reviews the same
-   round). Artifacts publish **private by default** and no tool parameter can
-   change that — after publishing a multi-reviewer board, ALWAYS remind the
-   user to flip the artifact's share setting to link-sharing themselves, or
-   teammates will hit a login wall and shared storage stays single-user. Same
-   rule on both channels: one round = one board.
+   direction built in. The board ships over three channels — pick by audience:
+   **local** (`serve-review.py`, default for a solo reviewer — decisions save
+   straight to disk); **share server** (default for multi-person review: fill
+   `assets/share-review.html` with the round's items — inline SVGs / data-URI
+   images, fully self-contained — and `POST` it to the org share server, e.g.
+   `https://brand-studio.sma1lboy.me/share` → one public link, no login, every
+   reviewer submits by name, and the agent reads the merged verdicts back
+   directly; see `share-server/README.md`); **Artifact** (fallback when no
+   share server is deployed — note artifacts publish private-by-default and
+   need the user to enable link sharing manually). Same rule on every channel:
+   one round = one board.
 3. **Verdicts — keep / maybe / drop** — the user marks each candidate
    **keep / maybe / drop** with an optional per-icon note, plus a next-round
    direction, right in the template. Three ways to get the decisions to the
@@ -563,16 +564,17 @@ bakes them into a single hardcoded prompt.
    writes `decisions-round-N.json` next to the round data; **Read** it directly,
    no paste. **(B) Export / paste** — the user copies/downloads the JSON and
    pastes it. (For only a handful of candidates an AskUserQuestion multi-select
-   is an acceptable shortcut.) **(C) Artifact shared storage** — on the Artifact
-   channel each reviewer enters a name, marks verdicts, and submits; the board
-   writes `window.storage.set("<series>:r<N>:verdict:<name>", json, true)`
-   (shared storage — live on published artifacts only, silently inert on drafts,
-   so the board must probe on load and surface storage status). Nothing outside
-   the artifact can read that storage — no API, no WebFetch — so the board MUST
-   include an aggregate view merging all submissions client-side plus one
-   copy-JSON button; a human pastes the merged JSON back to the agent, who then
-   applies the verdicts. Always keep a per-person export fallback for when
-   storage is unavailable. Never infer verdicts.
+   is an acceptable shortcut.) **(C) Share server** — each reviewer submits by
+   name from the board (`POST <share-url>/verdict`, resubmit overwrites); the
+   agent reads `GET <share-url>/verdicts` directly — no human shuttle. Poll it
+   when the user says the round has been reviewed. **(D) Artifact shared
+   storage (fallback)** — reviewers submit via
+   `window.storage.set("<series>:r<N>:verdict:<name>", json, true)` (live on
+   published artifacts only, silently inert on drafts — probe on load and
+   surface status). Nothing outside an artifact can read its storage, so the
+   board MUST merge submissions client-side and offer one copy-JSON button a
+   human pastes back. Every remote board keeps a per-person export fallback.
+   Never infer verdicts.
 4. **Settle** — for each **keep**, run `repo settle` into the matching portfolio
    (release/promo) with its `modality` and domain. `maybe`/`drop` and unpicked
    candidates stay in scratch (or are deleted only on request).

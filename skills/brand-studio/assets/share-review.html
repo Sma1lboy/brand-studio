@@ -75,6 +75,7 @@
       <label for="name">你的名字</label>
       <input id="name" placeholder="必填,提交用" maxlength="24" autocomplete="off">
       <span id="storagePill" class="pill">连接中…</span>
+      <select id="roundNav" class="pill" style="display:none;cursor:pointer;font:inherit;font-size:12.5px" aria-label="round history"></select>
     </div>
   </header>
 
@@ -273,4 +274,23 @@ $("nextDir").addEventListener("change", saveDraft);
 const pill = $("storagePill");
 pill.textContent = "share server ✓ 多人可提交"; pill.classList.add("ok");
 loadDraft();
+
+/* round switcher — series index lives outside any single round view */
+const SERIES = new URLSearchParams(location.search).get("series");
+if (SERIES && /^[\w-]{1,64}$/.test(SERIES)) {
+  fetch("/s/" + SERIES + "/index.json").then(r=>r.json()).then(d=>{
+    const rounds = d.rounds || [];
+    if (rounds.length < 1) return;
+    const nav = $("roundNav");
+    const cur = location.pathname.split("/").pop();
+    nav.innerHTML = [...rounds].reverse().map(e=>
+      '<option value="' + e.id + '"' + (e.id===cur?" selected":"") + ">round " + e.round + (e.title? " · " + e.title : "") + "</option>"
+    ).join("") + '<option value="__all__">全部 rounds…</option>';
+    nav.style.display = "inline-block";
+    nav.addEventListener("change", ()=>{
+      if (nav.value === "__all__") location.href = "/s/" + SERIES;
+      else location.href = "/share/" + nav.value + "?series=" + SERIES;
+    });
+  }).catch(()=>{});
+}
 </script>

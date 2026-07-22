@@ -341,8 +341,13 @@ Keep these roots separate:
   `sources.relatedRepos`.
 - **Skill root:** this installed `skills/brand-studio` folder.
 
-Do not create root-level `workspace/`, `outputs/`, `published/`, or `releases/`
-by default. Use metadata paths.
+Never create visible root-level state directories in a product repo —
+`workspace/`, `outputs/`, `published/`, `releases/`, or anything similar. Use
+metadata paths. If skill-owned state has no metadata-declared home, it defaults
+to a hidden `.brand-studio/` directory at the product-repo root (scratch renders
+stay under the metadata `artifacts.scratch` path, e.g. `.studio/`). User-facing
+content (settled assets, marketing copy, campaigns) settles into
+metadata-declared visible roots; everything else stays dotted.
 
 The launcher is:
 

@@ -43,7 +43,7 @@ cases:
       kobe's real TUI screenshots as theme references. The PNGs exist in the kobe repo.
     correct_decision: >
       Declare theme.references as product-repo paths (e.g.
-      kobe:workspace/products/kobe/kobe/references/kobe-tui-clean.png). Do NOT copy
+      kobe:docs/assets/brand/kobe-tui-clean.png). Do NOT copy
       the PNGs into the skill repo — it must carry zero real product bytes.
     anti_pattern: "Copies the kobe PNGs into tests/sandbox-*/marketing/references/ in the skill repo."
     judge:

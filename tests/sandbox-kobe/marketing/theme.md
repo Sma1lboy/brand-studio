@@ -63,8 +63,8 @@ global:
     # References live in the kobe PRODUCT repo, not this org skill repo. They are
     # declared as product-repo paths (the runtime uses them as prompt strings, not
     # files), so no product asset is embedded here.
-    clean-tui: { $value: "kobe:workspace/products/kobe/kobe/references/kobe-tui-clean.png", $type: "asset" }
-    actual-tui: { $value: "kobe:workspace/products/kobe/kobe/references/kobe-tui-actual.png", $type: "asset" }
+    clean-tui: { $value: "kobe:docs/assets/brand/kobe-tui-clean.png", $type: "asset" }
+    actual-tui: { $value: "kobe:docs/assets/brand/kobe-tui-actual.png", $type: "asset" }
 
 alias:
   style:

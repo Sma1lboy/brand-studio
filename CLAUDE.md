@@ -37,7 +37,7 @@ bytes.** Product assets — generated candidates, accepted logos/images/video/co
 (e.g. `kobe`) or its asset repo.
 
 This includes **test fixtures**: a fixture references product assets by their
-**product-repo path** (e.g. `kobe:workspace/products/kobe/…`), it does not embed
+**product-repo path** (e.g. `kobe:docs/assets/brand/…`), it does not embed
 copies. The runtime uses references as prompt strings, so a path that only
 resolves in the product repo is fine. If you find a real product asset committed
 here, that is a boundary violation — move it to the product repo and reference it.

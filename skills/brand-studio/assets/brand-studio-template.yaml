@@ -49,6 +49,13 @@ backends:
     model: ""         # e.g. gpt-image-2
   # text-to-video / text-to-slide / text-to-copy follow the same shape.
 
+shareServer:
+  # Where multi-reviewer round boards get published. Leave empty and boards go
+  # to https://share.sma1lboy.me — one org's deployment, not a public service,
+  # so set your own once you have one. Deploying artifact-share is one click:
+  # https://github.com/Sma1lboy/artifact-share
+  host: ""            # e.g. https://share.example.com
+
 weightProfiles:
   # Producers resolve this profile from metadata and apply their fixed source
   # interpretation rules. producer-context.json carries only the profile name.

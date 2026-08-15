@@ -555,17 +555,24 @@ bakes them into a single hardcoded prompt.
    **local** (`serve-review.py`, default for a solo reviewer — decisions save
    straight to disk); **share server** (default for multi-person review: fill
    `assets/share-review.html` with the round's items — inline SVGs / data-URI
-   images, fully self-contained — and `POST` it to the org share server, e.g.
-   `https://share.sma1lboy.me/share` → one public link, no login, every
-   reviewer submits by name, and the agent reads the merged verdicts back
-   directly. The server is `artifact-share`, vendored at `share-server/`.
-   **The host is per-install**: if the repo/user declares their own
-   `shareServer` host, POST there — `share.sma1lboy.me` is only this org's
-   deployment, not a shared public service to default other people onto);
-   **Artifact** (fallback when no
+   images, fully self-contained — and `POST` it to the share server → one
+   public link, no login, every reviewer submits by name, and the agent reads
+   the merged verdicts back directly); **Artifact** (fallback when no
    share server is deployed — note artifacts publish private-by-default and
    need the user to enable link sharing manually). Same rule on every channel:
    one round = one board.
+
+   The share server is `artifact-share`, vendored at `share-server/`. **Take
+   its host from `repo state` → `share_server.host`; never hardcode one.**
+   When `share_server.declared` is `false` you are falling back to
+   `share.sma1lboy.me` — that is one org's deployment, not a public service —
+   so say so out loud and point the user at `shareServer` in their metadata
+   (deploying their own is one click; see `share-server/README.md`):
+
+   ```yaml
+   shareServer:
+     host: https://share.example.com
+   ```
 3. **Verdicts — keep / maybe / drop** — the user marks each candidate
    **keep / maybe / drop** with an optional per-icon note, plus a next-round
    direction, right in the template. Three ways to get the decisions to the

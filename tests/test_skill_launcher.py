@@ -2163,6 +2163,65 @@ def test_resolve_backend_maps_capability_to_modality() -> None:
     assert launcher.resolve_backend({}, "image") == {}
 
 
+def test_resolve_share_server_prefers_the_declared_host() -> None:
+    launcher = load_launcher()
+
+    # Undeclared falls back to upstream's deployment and flags it, which is what
+    # lets the agent warn that boards are going to someone else's host.
+    fallback = launcher.resolve_share_server({})
+    assert fallback["host"] == launcher.DEFAULT_SHARE_SERVER
+    assert fallback["declared"] == "false"
+
+    # Both spellings work, and a trailing slash never doubles up when /share is
+    # appended.
+    for meta in (
+        {"shareServer": "https://share.example.com/"},
+        {"shareServer": {"host": "https://share.example.com/"}},
+    ):
+        resolved = launcher.resolve_share_server(meta)
+        assert resolved["host"] == "https://share.example.com"
+        assert resolved["declared"] == "true"
+
+    # An empty declaration is not a declaration — the shipped template carries
+    # `host: ""`, which must keep resolving to the fallback.
+    for empty in ({"shareServer": ""}, {"shareServer": {}}, {"shareServer": {"host": ""}}):
+        assert launcher.resolve_share_server(empty)["declared"] == "false"
+
+
+def test_repo_state_reports_the_share_server(tmp_path: Path) -> None:
+    # The agent reads the host out of the state preflight, so it has to survive
+    # the trip through the real command, not just the helper.
+    project = tmp_path / "product"
+    project.mkdir()
+    meta = metadata(project)
+    meta["shareServer"] = {"host": "https://share.example.com/"}
+    metadata_path = project / "marketing.studio.json"
+    metadata_path.write_text(json.dumps(meta), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--project-root",
+            str(project),
+            "--metadata",
+            str(metadata_path),
+            "repo",
+            "state",
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["share_server"] == {
+        "host": "https://share.example.com",
+        "declared": "true",
+    }
+
+
 CATALOG_PATH = ROOT / "skills" / "brand-studio" / "scripts" / "catalog.py"
 
 

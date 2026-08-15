@@ -2999,6 +2999,7 @@ def collect_state_snapshot(
             "accepted": str(paths["accepted_state"]),
             "directory_state_file": paths["directory_state_file"],
         },
+        "share_server": resolve_share_server(metadata),
         "asset_roots": asset_roots,
         "state_files": state_files,
         "portfolios": portfolios,
@@ -3918,6 +3919,32 @@ def resolve_backend(metadata: dict[str, Any], capability: str) -> dict[str, str]
         if value not in (None, ""):
             resolved[key] = str(value)
     return resolved
+
+
+DEFAULT_SHARE_SERVER = "https://share.sma1lboy.me"
+
+
+def resolve_share_server(metadata: dict[str, Any]) -> dict[str, str]:
+    """Resolve the artifact-share host review boards are published to.
+
+    Declared as `shareServer.host` (a bare string under `shareServer` also
+    works). Like `backends`, the runtime only declares and threads this — it
+    never publishes a board itself; the agent does.
+
+    Falls back to the upstream default, which is one org's deployment rather
+    than a shared public service. Anyone running their own artifact-share
+    should declare it so boards stop going to someone else's host.
+    """
+    declared = value_at(metadata, "shareServer")
+    host: str | None = None
+    if isinstance(declared, str):
+        host = declared.strip() or None
+    elif isinstance(declared, dict):
+        host = string_at(metadata, "shareServer", "host")
+    return {
+        "host": (host or DEFAULT_SHARE_SERVER).rstrip("/"),
+        "declared": "true" if host else "false",
+    }
 
 
 def bool_at(metadata: dict[str, Any], default: bool, *parts: str) -> bool:

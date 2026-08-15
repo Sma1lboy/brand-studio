@@ -558,8 +558,11 @@ bakes them into a single hardcoded prompt.
    images, fully self-contained — and `POST` it to the org share server, e.g.
    `https://share.sma1lboy.me/share` → one public link, no login, every
    reviewer submits by name, and the agent reads the merged verdicts back
-   directly; the server is `artifact-share`, vendored at `share-server/` —
-   see its README); **Artifact** (fallback when no
+   directly. The server is `artifact-share`, vendored at `share-server/`.
+   **The host is per-install**: if the repo/user declares their own
+   `shareServer` host, POST there — `share.sma1lboy.me` is only this org's
+   deployment, not a shared public service to default other people onto);
+   **Artifact** (fallback when no
    share server is deployed — note artifacts publish private-by-default and
    need the user to enable link sharing manually). Same rule on every channel:
    one round = one board.

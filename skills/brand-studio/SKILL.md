@@ -556,9 +556,10 @@ bakes them into a single hardcoded prompt.
    straight to disk); **share server** (default for multi-person review: fill
    `assets/share-review.html` with the round's items — inline SVGs / data-URI
    images, fully self-contained — and `POST` it to the org share server, e.g.
-   `https://brand-studio.sma1lboy.me/share` → one public link, no login, every
+   `https://share.sma1lboy.me/share` → one public link, no login, every
    reviewer submits by name, and the agent reads the merged verdicts back
-   directly; see `share-server/README.md`); **Artifact** (fallback when no
+   directly; the server is `artifact-share`, vendored at `share-server/` —
+   see its README); **Artifact** (fallback when no
    share server is deployed — note artifacts publish private-by-default and
    need the user to enable link sharing manually). Same rule on every channel:
    one round = one board.

@@ -67,8 +67,14 @@ cp -r brand-studio/skills/brand-studio ~/.claude/skills/
 ```
 
 The submodule is [artifact-share](https://github.com/Sma1lboy/artifact-share) —
-the share server behind review boards. It's optional for local use, and only
-needed if you want to publish a round as a link for other people to review.
+the share server behind review boards. It's optional: a solo reviewer decides
+locally against `serve-review.py` and never needs it. Deploy it when you want to
+put a round in front of other people as one link and read their verdicts back —
+one click, no config:
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Sma1lboy/artifact-share)
+
+Then point the skill at your own host instead of the default in `SKILL.md`.
 
 ### Hand this to your agent
 

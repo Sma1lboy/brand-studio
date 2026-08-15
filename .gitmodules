@@ -1,0 +1,3 @@
+[submodule "share-server"]
+	path = share-server
+	url = https://github.com/Sma1lboy/artifact-share.git

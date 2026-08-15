@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brand Studio — generate, review, settle: brand assets as a pipeline</title>
+<meta name="description" content="An agent skill that curates brand assets instead of improvising them. Reads your repo's visual state, hands structured brand weight to a producer, puts the candidates in front of humans, and seals only what you accept into a durable portfolio.">
+<link rel="canonical" href="https://brand-studio.sma1lboy.me/">
+<link rel="icon" href="/mark.svg" type="image/svg+xml">
+<meta property="og:title" content="Brand Studio — generate, review, settle">
+<meta property="og:description" content="An agent skill that curates brand assets instead of improvising them. Structured brand weight in, human-gated review, only accepted assets settle.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://brand-studio.sma1lboy.me/">
+<meta property="og:image" content="https://brand-studio.sma1lboy.me/og.svg">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+/* The studio's own identity — warm paper, terracotta, the hexagon. Fixed on
+   purpose (see CLAUDE.md): rounds must stay comparable across a series. */
+:root{
+  --paper:    #FCF8F1;
+  --ground:   #F3EDE3;
+  --rule:     #E2D8C8;
+  --rule-2:   #D3C6B0;
+  --clay:     #B4532A;
+  --clay-wash:#B4532A14;
+  --ink:      #191713;
+  --ink-2:    #4A443C;
+  --muted:    #7A7166;
+  --faint:    #A79C8D;
+  --keep:     #2E7D4F;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--ground);color:var(--ink-2);font:400 15.5px/1.68 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--clay);outline-offset:3px;border-radius:3px}
+.wrap{max-width:980px;margin:0 auto;padding:0 clamp(20px,5vw,44px)}
+code{font-family:var(--mono);font-size:.93em}
+
+header{position:sticky;top:0;z-index:20;background:#F3EDE3F0;backdrop-filter:blur(10px);border-bottom:1px solid var(--rule)}
+header .wrap{display:flex;align-items:center;gap:12px;height:62px}
+.mark{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:700;font-size:15.5px;letter-spacing:-.01em}
+.mark .hex{width:26px;height:26px;background:var(--ink);border-radius:6px;display:grid;place-items:center;flex:none}
+header nav{margin-left:auto;display:flex;gap:2px;font-size:13.5px}
+header nav a{padding:8px 12px;border-radius:8px;color:var(--muted);text-decoration:none}
+header nav a:hover{background:var(--paper);color:var(--ink)}
+
+.hero{padding:clamp(58px,9vw,108px) 0 clamp(30px,5vw,50px)}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--clay);margin-bottom:24px}
+h1{font-size:clamp(32px,5.6vw,53px);line-height:1.08;letter-spacing:-.024em;color:var(--ink);font-weight:700;max-width:17ch}
+h1 em{font-style:normal;color:var(--clay)}
+.lede{margin-top:22px;max-width:62ch;font-size:clamp(16px,1.9vw,18.5px);line-height:1.62}
+.cta{margin-top:32px;display:flex;flex-wrap:wrap;gap:10px}
+.btn{font-size:14px;font-weight:600;padding:11px 20px;border-radius:9px;text-decoration:none;background:var(--ink);color:var(--paper);border:1px solid var(--ink);transition:transform .12s,opacity .12s}
+.btn:hover{transform:translateY(-1px);opacity:.9}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--rule-2)}
+.btn.ghost:hover{border-color:var(--ink)}
+
+/* the loop — the one diagram that earns its space */
+.loop{margin-top:clamp(40px,6vw,66px);background:var(--paper);border:1px solid var(--rule);border-radius:16px;padding:clamp(22px,3.5vw,32px)}
+.loop-h{display:flex;align-items:baseline;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.loop-h b{color:var(--ink);font-size:15px}
+.loop-h span{color:var(--muted);font-size:13.5px}
+.stages{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stage{border:1px solid var(--rule);border-radius:11px;padding:15px 15px 16px;background:var(--ground);position:relative;min-width:0}
+.stage.gate{border-color:var(--clay);background:var(--clay-wash)}
+.stage h3{font-size:13.5px;color:var(--ink);margin-bottom:6px;display:flex;align-items:center;gap:7px}
+.stage .n{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.stage p{font-size:13px;line-height:1.52;color:var(--ink-2)}
+.stage .tag{position:absolute;top:-9px;right:11px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--clay);color:var(--paper);padding:2px 8px;border-radius:99px}
+.loop-back{margin-top:14px;display:flex;align-items:center;gap:9px;font-size:13px;color:var(--muted);font-family:var(--mono)}
+.loop-back::before{content:"↻";color:var(--clay);font-size:16px}
+@media (max-width:800px){.stages{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:460px){.stages{grid-template-columns:1fr}}
+
+section{padding:clamp(50px,7vw,84px) 0;border-top:1px solid var(--rule)}
+h2{font-size:clamp(22px,3.1vw,29px);letter-spacing:-.018em;color:var(--ink);font-weight:700;margin-bottom:11px}
+.sub{color:var(--muted);max-width:64ch;margin-bottom:32px}
+
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media (max-width:700px){.cards{grid-template-columns:1fr}}
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:13px;padding:22px 21px}
+.card h3{font-size:15.5px;color:var(--ink);margin-bottom:9px;font-weight:650}
+.card p{font-size:14.2px;line-height:1.6}
+.card .no{color:var(--clay);font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:9px}
+
+.term{background:var(--ink);border-radius:12px;padding:20px 22px;font-family:var(--mono);font-size:12.8px;line-height:1.9;color:#E5DCCD;white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
+.term .c{color:#8A8073}
+.term .p{color:#D9834F}
+.term .g{color:#7FB894}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media (max-width:760px){.split{grid-template-columns:1fr}}
+.wl{background:var(--paper);border:1px solid var(--rule);border-radius:13px;padding:22px 21px}
+.wl h3{font-size:14.5px;color:var(--ink);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.wl h3::before{content:"";width:8px;height:8px;border-radius:2px;flex:none}
+.wl.does h3::before{background:var(--keep)}
+.wl.doesnt h3::before{background:var(--clay)}
+.wl ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.wl li{font-size:14px;line-height:1.55;padding-left:18px;position:relative}
+.wl li::before{position:absolute;left:0;top:0;font-family:var(--mono);font-size:13px}
+.wl.does li::before{content:"+";color:var(--keep)}
+.wl.doesnt li::before{content:"−";color:var(--clay)}
+
+.pair{display:flex;gap:14px;align-items:center;background:var(--paper);border:1px solid var(--rule);border-radius:13px;padding:20px 21px;flex-wrap:wrap}
+.pair .glyph{width:40px;height:40px;border-radius:9px;background:var(--ink);display:grid;place-items:center;flex:none}
+.pair .t{flex:1;min-width:220px}
+.pair .t b{color:var(--ink);display:block;font-size:15px;margin-bottom:3px}
+.pair .t span{font-size:14px;color:var(--ink-2)}
+.pair a{font-size:13.5px;font-weight:600;color:var(--clay);text-decoration:none;white-space:nowrap;border-bottom:1px solid #B4532A55;padding-bottom:1px}
+
+footer{border-top:1px solid var(--rule);padding:34px 0 48px;font-size:13.5px;color:var(--muted)}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+footer a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid var(--rule-2)}
+footer a:hover{color:var(--ink)}
+footer .sp{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--faint)}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <a class="mark" href="/">
+    <span class="hex"><svg viewBox="0 0 120 120" width="17" height="17" aria-hidden="true"><path fill-rule="evenodd" fill="#F7F1E8" d="M60 12 L102 36 V84 L60 108 L18 84 V36 Z M42 68 L37 42 L52 53 H68 L83 42 L78 68 L60 90 Z"/></svg></span>
+    Brand Studio
+  </a>
+  <nav>
+    <a href="#loop">The loop</a>
+    <a href="#boundary">Boundary</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/Sma1lboy/brand-studio">GitHub</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+
+<div class="hero">
+  <div class="eyebrow">Agent skill · Python runtime · MIT</div>
+  <h1>Brand assets as a pipeline, not a <em>lucky prompt</em>.</h1>
+  <p class="lede">
+    Ask an agent for a logo and you get one good image and no memory of why. Brand Studio
+    makes the whole thing repeatable: it reads what your repo has already settled on,
+    hands that as structured weight to whichever producer you've bound, puts every
+    candidate in front of humans, and seals only what you accept.
+  </p>
+  <div class="cta">
+    <a class="btn" href="#install">Install the skill</a>
+    <a class="btn ghost" href="https://github.com/Sma1lboy/brand-studio">Source on GitHub</a>
+  </div>
+
+  <div class="loop" id="loop">
+    <div class="loop-h">
+      <b>The loop</b>
+      <span>Develop and settle are one closed circuit — settled assets become the next round's weight.</span>
+    </div>
+    <div class="stages">
+      <div class="stage">
+        <h3><span class="n">01</span> Brand state</h3>
+        <p>Theme tokens, references, and everything previously accepted — read before a single pixel is planned.</p>
+      </div>
+      <div class="stage">
+        <h3><span class="n">02</span> Generate</h3>
+        <p>Structured brand weight goes to the bound producer skill and your configured backend. In parallel, one subagent per deliverable.</p>
+      </div>
+      <div class="stage gate">
+        <span class="tag">human gate</span>
+        <h3><span class="n">03</span> Review</h3>
+        <p>A round board — keep / maybe / drop, with notes. Share it as one link and read the verdicts back.</p>
+      </div>
+      <div class="stage">
+        <h3><span class="n">04</span> Settle</h3>
+        <p>Keepers are sealed into approved assets with a manifest and checksum. Nothing accepted is ever lost.</p>
+      </div>
+    </div>
+    <div class="loop-back">settled assets feed the next round's brand weight</div>
+  </div>
+</div>
+
+<section id="boundary">
+  <h2>It curates. It does not produce.</h2>
+  <p class="sub">
+    That one sentence is the architecture. Generation belongs to producer skills and
+    rendering backends you choose; Brand Studio owns the durable, deterministic,
+    human-gated spine between them — which is exactly the part that's hard to keep
+    consistent across a year of asset requests.
+  </p>
+  <div class="split">
+    <div class="wl does">
+      <h3>The runtime does</h3>
+      <ul>
+        <li>Resolve paths and roots from one metadata file</li>
+        <li>Validate <code>theme.md</code> frontmatter and campaigns</li>
+        <li>Export structured handoff context — brand weight, deliverable spec, target path</li>
+        <li>Dry-run so you see the plan before spending credits</li>
+        <li>Settle accepted candidates into approved assets, manifests, checksums, portfolio state</li>
+      </ul>
+    </div>
+    <div class="wl doesnt">
+      <h3>The runtime never</h3>
+      <ul>
+        <li>Calls a model or renders pixels itself</li>
+        <li>Holds your credentials — auth stays in the runner's env</li>
+        <li>Treats a built-in prompt as the source of truth</li>
+        <li>Auto-installs or silently swaps a producer</li>
+        <li>Updates accepted state without an explicit human accept</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Multimodal by default</h2>
+  <p class="sub">
+    Validation, handoff, settle and reporting dispatch on <code>modality</code> — never on a
+    hard-coded image-extension list. Text is a first-class asset, which is why release
+    notes and brand-tone copy settle the same way a logo does.
+  </p>
+  <div class="cards">
+    <div class="card">
+      <span class="no">capability → producer</span>
+      <h3>You bind the producers</h3>
+      <p><code>image</code>, <code>video</code>, <code>logo</code>, <code>copy</code>, <code>slide</code>, <code>social</code> — each maps to a skill you already have installed. Brand Studio ships a recommendations catalog: names and links, not vendored implementations.</p>
+    </div>
+    <div class="card">
+      <span class="no">skills ≠ backends</span>
+      <h3>Prompt-craft and pixels are separate axes</h3>
+      <p>A producer decides <em>what the prompt is</em>; the declared backend decides <em>what renders it</em> — your local <code>codex exec</code>, an API, an MCP server. Swap either without touching the other.</p>
+    </div>
+    <div class="card">
+      <span class="no">weighted inputs</span>
+      <h3>Brand weight isn't one blob</h3>
+      <p>Org standard, product theme, sibling-repo assets, the accepted portfolio — distinct inputs, named and assembled into the context a producer receives. That's why round 4 still looks like round 1.</p>
+    </div>
+    <div class="card">
+      <span class="no">release marketing</span>
+      <h3>Changelog in, campaign out</h3>
+      <p>It reads <code>CHANGELOG.md</code>, summarizes releases into an editable <code>copy.yaml</code>, and turns that text asset into a normal campaign — so the release graphic is about the release, not a generic hero.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Review is a link, not a meeting</h2>
+  <p class="sub">Candidates go up as one board. Reviewers open it, decide, submit. The agent reads the verdicts back and settles the keepers — no screenshots in chat, no copy-paste shuttle.</p>
+  <div class="pair">
+    <div class="glyph">
+      <svg viewBox="0 0 120 120" width="21" height="21" aria-hidden="true">
+        <rect x="44" y="16" width="60" height="60" rx="13" fill="none" stroke="#F7F1E8" stroke-width="9" opacity=".38"/>
+        <rect x="16" y="44" width="60" height="60" rx="13" fill="#F7F1E8"/>
+      </svg>
+    </div>
+    <div class="t">
+      <b>artifact-share</b>
+      <span>The transport behind those boards, split out as its own thing. Publish an HTML page, get the verdicts back as JSON. Bundled here as a submodule.</span>
+    </div>
+    <a href="https://share.sma1lboy.me">share.sma1lboy.me →</a>
+  </div>
+</section>
+
+<section id="install">
+  <h2>Install</h2>
+  <p class="sub">The skill payload lives in <code>skills/brand-studio/</code>. Fork first if you want your own org defaults, producer preferences, and templates to travel with it.</p>
+  <div class="term">
+<span class="c"># clone (with the artifact-share submodule)</span>
+$ git clone --recurse-submodules <span class="p">https://github.com/Sma1lboy/brand-studio</span>
+
+<span class="c"># install the skill payload for your agent</span>
+$ cp -r brand-studio/skills/brand-studio ~/.claude/skills/
+
+<span class="c"># then, inside any product repo:</span>
+$ <span class="g">$brand-studio init this repo from the attached brand images</span>
+$ <span class="g">$brand-studio create a campaign for a launch poster, dry-run first</span>
+$ <span class="g">$brand-studio record the accepted banner into visual asset state</span></div>
+  <p style="margin-top:20px;color:var(--muted);font-size:14px;max-width:66ch">
+    For real team use, fork it: treat <code>Sma1lboy/brand-studio</code> as the generic upstream
+    and your fork as the shared source of truth for metadata, policy, and producer
+    preferences. Product repos pin the fork through a submodule or tag — product assets
+    always stay in the product repo, never in the skill repo.
+  </p>
+</section>
+
+</div>
+
+<footer><div class="wrap">
+  <a href="https://github.com/Sma1lboy/brand-studio">GitHub</a>
+  <a href="https://share.sma1lboy.me">artifact-share</a>
+  <a href="https://sma1lboy.me">sma1lboy.me</a>
+  <span class="sp">MIT · agent skill</span>
+</div></footer>
+
+</body>
+</html>

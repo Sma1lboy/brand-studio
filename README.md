@@ -2,7 +2,7 @@
 
 # Brand Studio Skill
 
-[简体中文](README.zh-CN.md)
+[brand-studio.sma1lboy.me](https://brand-studio.sma1lboy.me) · [简体中文](README.zh-CN.md)
 
 Brand Studio is an installable agent skill for producing theme-locked
 marketing assets from a product repository. It validates repo visual tokens,
@@ -12,6 +12,9 @@ user-accepted assets into repo-owned visual asset state.
 This repo ships one installable skill payload plus maintainer tooling:
 
 - `skills/brand-studio/`: the installable skill payload.
+- `share-server/`: submodule → [artifact-share](https://github.com/Sma1lboy/artifact-share),
+  the share server behind multi-reviewer round boards.
+- `site/`: the landing page (static, deployed to Vercel).
 
 The runtime used by agents is bundled under `skills/brand-studio/scripts/`.
 There is no top-level `src/` package in the skill shape.
@@ -50,6 +53,60 @@ The skill helps an agent:
 
 Downstream apps consume accepted files and manifests. They do not run
 generation, and scratch candidates are not visual memory.
+
+## Install
+
+**[Fork this repo](https://github.com/Sma1lboy/brand-studio/fork)** — that fork
+becomes the shared source of truth for your org's metadata, policy, producer
+preferences, and templates (see [Recommended Sharing Model](#recommended-sharing-model)).
+Then clone with submodules and copy the payload into your agent's skill directory:
+
+```bash
+git clone --recurse-submodules https://github.com/<you>/brand-studio
+cp -r brand-studio/skills/brand-studio ~/.claude/skills/
+```
+
+The submodule is [artifact-share](https://github.com/Sma1lboy/artifact-share) —
+the share server behind review boards. It's optional for local use, and only
+needed if you want to publish a round as a link for other people to review.
+
+### Hand this to your agent
+
+Fork first, then paste the block below into Claude Code / Codex / Cursor from the
+clone:
+
+``````text
+Set up this brand-studio fork for me.
+
+Steps:
+1. Confirm submodules are present: `git submodule status`. If `share-server/`
+   is empty, run `git submodule update --init --recursive`.
+2. Install the skill payload where my agent looks for skills — check which of
+   these exists and ask me if more than one does:
+   - `~/.claude/skills/`      (Claude Code, user scope)
+   - `.claude/skills/`        (project scope, current repo)
+   - `~/.codex/skills/`       (Codex)
+   Copy `skills/brand-studio/` there. Don't symlink into my repo; copy it, so
+   my fork's version is what runs.
+3. Verify the runtime works: `uv sync` (or `pip install pyyaml`), then
+   `python3 skills/brand-studio/scripts/studio.py --help`. Show me the output.
+4. Tell me the exact path you installed to, and confirm the skill is listed
+   when I start a new agent session.
+
+Then, if I point you at a product repo, run the init flow there — NOT here:
+   `$brand-studio init this repo from existing repo assets`
+Product assets always live in the product repo. This skill repo holds runtime,
+producers, and templates only — never real product bytes.
+
+Constraints: don't generate any images during setup, don't call any model
+backend, and don't commit anything without asking.
+``````
+
+> **Not a hosted service.** brand-studio is an agent skill plus a Python runtime
+> that executes on your machine, so there is nothing to deploy to Railway/Vercel/
+> Fly — no server, no port, no container. The only deployable piece is the
+> optional [artifact-share](https://github.com/Sma1lboy/artifact-share) worker for
+> shared review links, which runs on Cloudflare.
 
 ## Use
 

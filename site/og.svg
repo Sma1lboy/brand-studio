@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <rect width="1200" height="630" fill="#F3EDE3"/>
+  <rect x="0" y="0" width="1200" height="7" fill="#B4532A"/>
+
+  <g transform="translate(84,80)">
+    <rect width="52" height="52" rx="12" fill="#191713"/>
+    <g transform="translate(26,26) scale(.30) translate(-60,-60)">
+      <path fill-rule="evenodd" fill="#F7F1E8" d="M60 12 L102 36 V84 L60 108 L18 84 V36 Z M42 68 L37 42 L52 53 H68 L83 42 L78 68 L60 90 Z"/>
+    </g>
+  </g>
+  <text x="152" y="115" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="28" font-weight="700" fill="#191713">Brand Studio</text>
+
+  <text x="84" y="272" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="70" font-weight="700" fill="#191713" letter-spacing="-1.7">Brand assets as a pipeline,</text>
+  <text x="84" y="358" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="70" font-weight="700" fill="#191713" letter-spacing="-1.7">not a <tspan fill="#B4532A">lucky prompt</tspan>.</text>
+
+  <text x="84" y="424" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="26" fill="#7A7166">It curates and settles. Producers generate. Humans decide.</text>
+
+  <g font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="21" font-weight="600">
+    <rect x="84" y="480" width="212" height="58" rx="11" fill="#FCF8F1" stroke="#E2D8C8"/>
+    <text x="108" y="516" fill="#191713">brand state</text>
+    <text x="312" y="516" fill="#A79C8D" font-size="24">→</text>
+
+    <rect x="348" y="480" width="190" height="58" rx="11" fill="#FCF8F1" stroke="#E2D8C8"/>
+    <text x="372" y="516" fill="#191713">generate</text>
+    <text x="554" y="516" fill="#A79C8D" font-size="24">→</text>
+
+    <rect x="590" y="480" width="176" height="58" rx="11" fill="#B4532A14" stroke="#B4532A"/>
+    <text x="614" y="516" fill="#B4532A">review</text>
+    <text x="782" y="516" fill="#A79C8D" font-size="24">→</text>
+
+    <rect x="818" y="480" width="160" height="58" rx="11" fill="#FCF8F1" stroke="#E2D8C8"/>
+    <text x="842" y="516" fill="#191713">settle</text>
+    <text x="996" y="516" fill="#B4532A" font-size="26">↻</text>
+  </g>
+
+  <text x="84" y="590" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="18" fill="#A79C8D">brand-studio.sma1lboy.me · agent skill · MIT</text>
+</svg>

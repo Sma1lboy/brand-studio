@@ -235,6 +235,26 @@ deliverables:
 
 Campaigns must not include style prompt fragments, palette, negative prompts, references, or producer params.
 
+## Copy Package
+
+Copy packages are reusable brand-tone text assets. They are not release-image
+helpers and they are not prompt fragments. A copy package starts in scratch,
+is reviewed with the standard round board, and only enters the durable corpus
+after user acceptance.
+
+```yaml
+schema_version: "1.0"
+kind: "copy_package"
+idea: "What this campaign should say"
+headline: "Visible headline"
+body: "Reusable body copy."
+```
+
+The initial schema is deliberately small: `headline` and `body` are required;
+`idea` records the source intent. Future CTA, variant, channel, and locale
+fields should extend this object instead of splitting headline/body into
+separate accepted assets by default.
+
 ## Production Plan
 
 Plans are source state written before rendering:
@@ -339,6 +359,7 @@ accepted:
     campaign: "release-v0-7-45"
     asset_id: "release-poster"
     domain: "release"
+    modality: "image"
     source_kind: "changelog"
     asset_type: "release-poster"
     style_family: "log-full-editorial"
@@ -348,6 +369,11 @@ accepted:
 Use `domain: promo`, `source_kind: campaign-brief`,
 `asset_type: hero`, and `style_family: screen-first-field-scene` for normal
 campaign-first promotional assets unless the repo has a more specific approved
+taxonomy.
+
+For accepted general copy packages, use `modality: copy`,
+`source_kind: idea`, `asset_type: copy-package`, and
+`style_family: brand-voice` unless the repo defines a more specific voice
 taxonomy.
 
 ## Run Lock

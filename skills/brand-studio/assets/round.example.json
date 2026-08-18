@@ -5,6 +5,15 @@
   "prev": [],
   "items": [
     { "id": "01", "concept": "cursor block", "img": "candidate-01.png" },
-    { "id": "02", "concept": "bracket badge", "img": "candidate-02.png" }
+    { "id": "02", "concept": "bracket badge", "img": "candidate-02.png" },
+    {
+      "id": "landing-copy",
+      "kind": "copy_package",
+      "modality": "copy",
+      "concept": "Launch copy direction",
+      "headline": "Launch work that keeps its shape",
+      "body": "Turn rough campaign intent into reviewed brand copy that can be reused.",
+      "file": "landing-copy.copy.yaml"
+    }
   ]
 }

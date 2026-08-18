@@ -376,6 +376,8 @@ Prefer the canonical command surface:
 | repo state preflight | `repo state` |
 | validation | `repo validate` |
 | dry render | `repo render --dry-run` |
+| copy package draft | `repo copy draft --write --campaign <name> --asset-id <id> --idea <text> --headline <text> --body <text>` |
+| copy package settle | `repo copy settle --campaign <name> --asset-id <id> --file <path>` |
 | release copy review | `repo release copy --write --releases 4` |
 | `gen-repo` release | `repo gen release --releases 4 --changelog <file>` |
 | producer prompt | `repo prompt --campaign <name> --asset-id <id>` |
@@ -864,6 +866,54 @@ Migrate without treating every existing file as accepted:
    for files the user explicitly accepts or that the repo already documents as
    approved deliverables.
 6. Run validate and dry-run before replacing the official theme.
+
+Copy-package helpers:
+
+```bash
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml \
+  repo copy draft --write \
+  --campaign launch \
+  --asset-id landing-copy \
+  --idea "What this campaign should say" \
+  --headline "Visible headline" \
+  --body "Reusable body copy."
+```
+
+Use `repo copy draft` for general brand-tone copy packages, not release image
+production. It writes a `copy_package` candidate under `artifacts.scratch` and a
+standard round-review JSON beside it so headline/body candidates can be reviewed
+with keep / maybe / drop in `round-review.html`.
+
+`copy_package` is intentionally small:
+
+```yaml
+schema_version: "1.0"
+kind: "copy_package"
+idea: "What this campaign should say"
+headline: "Visible headline"
+body: "Reusable body copy."
+```
+
+After the user marks a copy package as keep, settle it:
+
+```bash
+python3 "$SKILL_ROOT/scripts/studio.py" --project-root "$PWD" \
+  --metadata path/to/marketing.studio.yaml \
+  repo copy settle \
+  --campaign launch \
+  --asset-id landing-copy \
+  --file .studio/marketing/out/launch/landing-copy.copy.yaml \
+  --domain promo \
+  --update-asset-state
+```
+
+`repo copy settle` validates the package has `headline` and `body`, then delegates
+to the same multimodal settle helper with `modality: copy`,
+`source_kind: idea`, `asset_type: copy-package`, and
+`style_family: brand-voice` defaults. Brand Studio still does not write the
+creative copy itself; the headline/body can come from the user, the main agent,
+or a bound external `skills.copy` producer/backend.
 
 Release-version helpers:
 

@@ -273,6 +273,22 @@ cases:
       pass_if: "Settles non-image assets by modality."
       fail_if: "Rejects/settles-incorrectly non-image assets."
 
+  - id: copy-package-not-release-image
+    category: runtime
+    rule: "SKILL.md — general copy packages are headline/body text assets reviewed and settled as copy, not release image production"
+    scenario: >
+      The user says: "Make a reusable launch copy package from this idea, with a
+      headline and body, and land the accepted copy in brand memory." This is not
+      a release notes image request.
+    correct_decision: >
+      Use the copy-package lane: write/review a copy_package with headline/body,
+      then settle the accepted package as modality=copy with asset_type=copy-package.
+      Do not run repo gen release or treat the copy as an image prompt.
+    anti_pattern: "Routes the task through release image generation or stores only campaign inline copy."
+    judge:
+      pass_if: "Uses copy_package draft/review/settle and lands it as a copy asset."
+      fail_if: "Uses release image production or fails to settle the reusable copy package."
+
 # ── E. Safety ────────────────────────────────────────────────────────────────
   - id: no-destructive-delete-without-consent
     category: safety
